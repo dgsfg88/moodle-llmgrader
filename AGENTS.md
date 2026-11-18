@@ -115,6 +115,7 @@ API-related comments where appropriate.
 
 Use Italian for:
 
+README.md
 Administrator-facing interface strings.
 User documentation.
 Default student feedback.
@@ -134,6 +135,7 @@ Required documentation
 
 Maintain:
 
+README.md
 docs/architecture.md
 docs/implementation-log.md
 docs/test-plan.md
