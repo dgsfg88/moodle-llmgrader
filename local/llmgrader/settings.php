@@ -24,8 +24,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-if ($hassiteconfig && isset($settings) && $settings instanceof admin_settingpage) {
-    // This check is performed for you automatically in admin/settings.php.
+if ($hassiteconfig) {
+    // Create settings page if not already provided by Moodle.
+    if (!isset($settings) || !$settings instanceof admin_settingpage) {
+        $settings = new admin_settingpage('local_llmgrader', get_string('pluginname', 'local_llmgrader'));
+        $ADMIN->add('localplugins', $settings);
+    }
 
     // General settings.
     $settings->add(new admin_setting_configcheckbox(
