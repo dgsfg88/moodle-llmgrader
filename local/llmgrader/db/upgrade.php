@@ -2,7 +2,7 @@
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Database upgrade script for LLM Grader plugin.
+ * Database upgrade script for LLM Grader plugin - multi-level configuration.
  *
  * @package   local_llmgrader
  * @copyright 2025
@@ -25,51 +25,107 @@
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Perform database upgrades for the llmgrader plugin.
+ * Execute upgrade from previous version.
  *
- * @param int $oldversion The version we are upgrading from
- * @return bool Always returns true
+ * @param int $oldversion The version we are upgrading from.
+ * @return bool Always true.
+ * @throws \dml_exception
  */
-function xmldb_llmgrader_upgrade($oldversion) {
-    global $CFG, $DB;
+function xmldb_local_llmgrader_upgrade($oldversion) {
+    global $DB;
 
-    $dbman = $DB->get_manager();
+    $dbmanager = $DB->get_manager();
 
-    if ($oldversion < 2026111800) {
-        // Create the local_llmgrader_log table.
-        $table = new xmldb_table('local_llmgrader_log');
+    // Upgrade from version before multi-level config (2026111800 or earlier).
+    if ($oldversion < 2026111900) {
 
-        $table->add_field('id', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
-        $table->add_field('attemptid', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('slot', XMLDB_TYPE_INTEGER, 5, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('questionid', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('questionversion', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('status', XMLDB_TYPE_CHAR, 30, null, XMLDB_NOTNULL, null, 'pending');
-        $table->add_field('model', XMLDB_TYPE_CHAR, 100, null, null, null, null);
-        $table->add_field('score', XMLDB_TYPE_NUMBER, '5,2', null, null, null, null);
-        $table->add_field('maxscore', XMLDB_TYPE_NUMBER, '5,2', null, null, null, null);
-        $table->add_field('feedback', XMLDB_TYPE_TEXT, null, null, null, null, null);
-        $table->add_field('retrycount', XMLDB_TYPE_INTEGER, 3, null, XMLDB_NOTNULL, null, 0);
-        $table->add_field('nextretry', XMLDB_TYPE_INTEGER, 10, null, null, null, null);
-        $table->add_field('lasthttpcode', XMLDB_TYPE_INTEGER, 5, null, null, null, null);
-        $table->add_field('lastretryreason', XMLDB_TYPE_TEXT, null, null, null, null, null);
-        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('timecompleted', XMLDB_TYPE_INTEGER, 10, null, null, null, null);
-        $table->add_field('error', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        // --- Add new tables ---
 
-        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
-        $table->add_index('attemptid', XMLDB_INDEX_NOTUNIQUE, ['attemptid']);
-        $table->add_index('status', XMLDB_INDEX_NOTUNIQUE, ['status']);
-        $table->add_index('nextretry', XMLDB_INDEX_NOTUNIQUE, ['nextretry']);
-        $table->add_index('unique_op', XMLDB_INDEX_UNIQUE, ['attemptid', 'slot', 'questionid', 'questionversion']);
+        // Table: local_llmgrader_course_config.
+        if (!$dbmanager->table_exists('local_llmgrader_course_config')) {
+            $table = new xmldb_table('local_llmgrader_course_config');
 
-        if (!$dbman->table_exists($table)) {
-            $dbman->add_table($table);
+            $table->add_field('id', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('courseid', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
+            $table->add_field('enabled', XMLDB_TYPE_INTEGER, 1, null, XMLDB_NOTNULL, null, '0');
+            $table->add_field('api_endpoint', XMLDB_TYPE_CHAR, 512, null, null, null, null);
+            $table->add_field('api_key', XMLDB_TYPE_CHAR, 512, null, null, null, null);
+            $table->add_field('model', XMLDB_TYPE_CHAR, 100, null, null, null, null);
+            $table->add_field('temperature', XMLDB_TYPE_NUMBER, '3,2', null, null, null, '0.20');
+            $table->add_field('max_tokens', XMLDB_TYPE_INTEGER, 10, null, null, null, null);
+            $table->add_field('http_timeout', XMLDB_TYPE_INTEGER, 10, null, null, null, null);
+            $table->add_field('system_prompt', XMLDB_TYPE_TEXT, null, null, null, null, null);
+            $table->add_field('feedback_language', XMLDB_TYPE_CHAR, 10, null, null, null, null);
+            $table->add_field('retry_enabled', XMLDB_TYPE_INTEGER, 1, null, null, null, '1');
+            $table->add_field('max_retries', XMLDB_TYPE_INTEGER, 3, null, null, null, '8');
+            $table->add_field('base_retry_delay', XMLDB_TYPE_INTEGER, 10, null, null, null, '5');
+            $table->add_field('max_backoff_delay', XMLDB_TYPE_INTEGER, 10, null, null, null, '900');
+            $table->add_field('timecreated', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
+            $table->add_field('timemodified', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
+
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_index('courseid', XMLDB_INDEX_UNIQUE, ['courseid']);
+
+            $dbmanager->create_table($table);
         }
 
-        // Mark version as upgraded.
-        upgrade_plugin_savepoint(true, 2026111800, 'local', 'llmgrader');
+        // Table: local_llmgrader_quiz_config.
+        if (!$dbmanager->table_exists('local_llmgrader_quiz_config')) {
+            $table = new xmldb_table('local_llmgrader_quiz_config');
+
+            $table->add_field('id', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+            $table->add_field('quizid', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
+            $table->add_field('courseid', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
+            $table->add_field('enabled', XMLDB_TYPE_INTEGER, 1, null, XMLDB_NOTNULL, null, '0');
+            $table->add_field('api_endpoint', XMLDB_TYPE_CHAR, 512, null, null, null, null);
+            $table->add_field('api_key', XMLDB_TYPE_CHAR, 512, null, null, null, null);
+            $table->add_field('model', XMLDB_TYPE_CHAR, 100, null, null, null, null);
+            $table->add_field('temperature', XMLDB_TYPE_NUMBER, '3,2', null, null, null, '0.20');
+            $table->add_field('max_tokens', XMLDB_TYPE_INTEGER, 10, null, null, null, null);
+            $table->add_field('http_timeout', XMLDB_TYPE_INTEGER, 10, null, null, null, null);
+            $table->add_field('system_prompt', XMLDB_TYPE_TEXT, null, null, null, null, null);
+            $table->add_field('feedback_language', XMLDB_TYPE_CHAR, 10, null, null, null, null);
+            $table->add_field('retry_enabled', XMLDB_TYPE_INTEGER, 1, null, null, null, '1');
+            $table->add_field('max_retries', XMLDB_TYPE_INTEGER, 3, null, null, null, '8');
+            $table->add_field('base_retry_delay', XMLDB_TYPE_INTEGER, 10, null, null, null, '5');
+            $table->add_field('max_backoff_delay', XMLDB_TYPE_INTEGER, 10, null, null, null, '900');
+            $table->add_field('timecreated', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
+            $table->add_field('timemodified', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null);
+
+            $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+            $table->add_index('quizid', XMLDB_INDEX_UNIQUE, ['quizid']);
+            $table->add_index('courseid', XMLDB_INDEX_NORMAL, ['courseid']);
+
+            $dbmanager->create_table($table);
+        }
+
+        // --- Alter log table: add configlevel and configid fields ---
+
+        if ($dbmanager->table_exists('local_llmgrader_log')) {
+            $table = $dbmanager->get_table('local_llmgrader_log');
+
+            // Add configlevel field.
+            if (!$table->has_field('configlevel')) {
+                $field = new xmldb_field('configlevel', XMLDB_TYPE_CHAR, 10, null, null, null, null, 'error');
+                $dbmanager->add_field($table, $field);
+            }
+
+            // Add configid field.
+            if (!$table->has_field('configid')) {
+                $field = new xmldb_field('configid', XMLDB_TYPE_INTEGER, 10, null, null, null, null, 'configlevel');
+                $dbmanager->add_field($table, $field);
+            }
+
+            // Add index for configlevel + configid.
+            if (!$table->has_index('configlevel')) {
+                $index = new xmldb_index('configlevel', XMLDB_INDEX_NOTUNIQUE, ['configlevel', 'configid']);
+                $dbmanager->add_index($table, $index);
+            }
+        }
+
+        // Mark upgrade as complete.
+        set_config('upgradedtomultilevel', '1', 'local_llmgrader');
+        upgrade_plugin_savepoint(true, 2026111900, 'local', 'llmgrader');
     }
 
     return true;
