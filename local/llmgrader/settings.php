@@ -24,7 +24,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-if ($hassiteconfig) {
+if ($hassiteconfig && isset($settings) && $settings instanceof admin_settingpage) {
     // This check is performed for you automatically in admin/settings.php.
 
     // General settings.
