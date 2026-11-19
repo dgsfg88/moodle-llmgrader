@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/llmgrader/db" VERSION="2026111800" COMMENT="XMLDB file for Moodle local/llmgrader"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="local_llmgrader_log" COMMENT="Grading operation log for LLM Grader">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="attemptid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Quiz attempt ID"/>
+        <FIELD NAME="slot" TYPE="int" LENGTH="5" NOTNULL="true" SEQUENCE="false" COMMENT="Question slot number"/>
+        <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Question ID"/>
+        <FIELD NAME="questionversion" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Question version used"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="pending" SEQUENCE="false" COMMENT="Grading status"/>
+        <FIELD NAME="model" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="LLM model used"/>
+        <FIELD NAME="score" TYPE="number" PRECISION="5" SCALE="2" NOTNULL="false" SEQUENCE="false" COMMENT="Score assigned"/>
+        <FIELD NAME="maxscore" TYPE="number" PRECISION="5" SCALE="2" NOTNULL="false" SEQUENCE="false" COMMENT="Maximum score"/>
+        <FIELD NAME="feedback" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Feedback text (sanitized HTML)"/>
+        <FIELD NAME="retrycount" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of retry attempts"/>
+        <FIELD NAME="nextretry" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Next scheduled retry time"/>
+        <FIELD NAME="lasthttpcode" TYPE="int" LENGTH="5" NOTNULL="false" SEQUENCE="false" COMMENT="Last HTTP response code"/>
+        <FIELD NAME="lastretryreason" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Reason for last retry"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Record creation time"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Last modification time"/>
+        <FIELD NAME="timecompleted" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Completion time"/>
+        <FIELD NAME="error" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Error message if failed"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="attemptid" UNIQUE="false" FIELDS="attemptid"/>
+        <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+        <INDEX NAME="nextretry" UNIQUE="false" FIELDS="nextretry"/>
+        <INDEX NAME="unique_op" UNIQUE="true" FIELDS="attemptid, slot, questionid, questionversion"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>
