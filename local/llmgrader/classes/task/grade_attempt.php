@@ -2,7 +2,7 @@
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
@@ -26,7 +26,9 @@ namespace local_llmgrader\task;
 
 use core\task\adhoc_task;
 use exception;
+use local_llmgrader\local\config_provider;
 use local_llmgrader\local\essay_grader;
+use local_llmgrader\local\retry_manager;
 use moodle_exception;
 
 defined('MOODLE_INTERNAL') || die();
@@ -41,13 +43,15 @@ class grade_attempt extends adhoc_task {
      *
      * @param int $attemptid Quiz attempt ID
      * @param int $quizid Quiz ID
+     * @param int $courseid Course ID
      * @return self
      */
-    public static function instance(int $attemptid, int $quizid): self {
+    public static function instance(int $attemptid, int $quizid, int $courseid = 0): self {
         $task = new self();
         $task->set_custom_data((object)[
             'attemptid' => $attemptid,
             'quizid'    => $quizid,
+            'courseid'  => $courseid,
         ]);
         return $task;
     }
@@ -69,6 +73,10 @@ class grade_attempt extends adhoc_task {
 
         $attemptid = (int)$data->attemptid;
         $quizid = (int)$data->quizid;
+        $courseid = isset($data->courseid) ? (int)$data->courseid : 0;
+
+        // Resolve the effective configuration for this quiz/course context.
+        $config = config_provider::get_effective_config($quizid, $courseid);
 
         // Verify the attempt exists and is submitted.
         $attempt = $DB->get_record('quiz_attempts', ['id' => $attemptid, 'quiz' => $quizid], '*', MUST_EXIST);
@@ -86,7 +94,7 @@ class grade_attempt extends adhoc_task {
         }
 
         // Get essay questions that need grading.
-        $essaygrader = new essay_grader();
+        $essaygrader = new essay_grader($config);
         $slots = $quba->get_slots();
 
         foreach ($slots as $slot) {
@@ -134,13 +142,19 @@ class grade_attempt extends adhoc_task {
                     'retrycount' => 0,
                     'timecreated' => time(),
                     'timemodified' => time(),
+                    'configlevel' => $config->configlevel,
+                    'configid' => $config->configid,
                 ];
                 $existinglog->id = $DB->insert_record('local_llmgrader_log', $existinglog);
+            } else {
+                // Update config tracking fields.
+                $DB->set_field('local_llmgrader_log', 'configlevel', $config->configlevel, ['id' => $existinglog->id]);
+                $DB->set_field('local_llmgrader_log', 'configid', $config->configid, ['id' => $existinglog->id]);
             }
 
             // Grade the essay.
             try {
-                $result = $essaygrader->grade($question, $quba, $slot, $attemptid);
+                $result = $essaygrader->grade($question, $quba, $slot, $attemptid, $quizid, $courseid);
 
                 if ($result) {
                     $DB->set_field('local_llmgrader_log', 'status', 'completed', [
@@ -161,11 +175,11 @@ class grade_attempt extends adhoc_task {
                     $DB->set_field('local_llmgrader_log', 'timecompleted', time(), [
                         'id' => $existinglog->id,
                     ]);
-                    mtrace("Slot {$slot} graded: {$result['score']}/{$result['maxscore']}");
+                    mtrace("Slot {$slot} graded: {$result['score']}/{$result['maxscore']} (config: {$config->configlevel})");
                 }
             } catch (exception $e) {
-                // Handle retry logic.
-                $retrymanager = new \local_llmgrader\local\retry_manager();
+                // Handle retry logic using config-specific settings.
+                $retrymanager = new retry_manager($config);
                 if ($retrymanager->is_retryable($e)) {
                     $delay = $retrymanager->get_delay($existinglog->retrycount);
                     $DB->set_field('local_llmgrader_log', 'status', 'retry_scheduled', [
@@ -187,7 +201,9 @@ class grade_attempt extends adhoc_task {
                         $attemptid,
                         $slot,
                         $question->id,
-                        $question->version
+                        $question->version,
+                        $quizid,
+                        $courseid
                     );
                     manager::queue_adhoc_task($retrytask);
                     mtrace("Slot {$slot} failed (will retry in {$delay}s): " . $e->getMessage());
