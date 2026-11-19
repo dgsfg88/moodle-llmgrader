@@ -22,13 +22,15 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/../../config.php');
+require_once($CFG->dirroot . '/mod/quiz/lib.php');
+require_once($CFG->libdir . '/adminlib.php');
+
 use local_llmgrader\local\config_provider;
 use local_llmgrader\local\quiz_config_manager;
 use local_llmgrader\form\quiz_config_form;
-
-require_once($CFG->dirroot . '/mod/quiz/lib.php');
-
-defined('MOODLE_INTERNAL') || die();
 
 $cmid = required_param('cmid', PARAM_INT);
 $save = optional_param('save', null, PARAM_RAW);
