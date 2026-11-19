@@ -39,6 +39,18 @@ function xmldb_local_llmgrader_upgrade($oldversion) {
     // Upgrade from version before multi-level config (2026111800 or earlier).
     if ($oldversion < 2026111900) {
 
+        // --- Clean up stale scheduled task records ---
+        // grade_attempt and retry_grading are adhoc tasks only, not scheduled.
+        // Remove any leftover scheduled task entries from previous versions.
+        $DB->delete_records('task_scheduled', [
+            'component' => 'local_llmgrader',
+            'classname' => 'local_llmgrader\task\grade_attempt',
+        ]);
+        $DB->delete_records('task_scheduled', [
+            'component' => 'local_llmgrader',
+            'classname' => 'local_llmgrader\task\retry_grading',
+        ]);
+
         // --- Add new tables ---
 
         // Table: local_llmgrader_course_config.
@@ -126,6 +138,28 @@ function xmldb_local_llmgrader_upgrade($oldversion) {
         // Mark upgrade as complete.
         set_config('upgradedtomultilevel', '1', 'local_llmgrader');
         upgrade_plugin_savepoint(true, 2026111900, 'local', 'llmgrader');
+    }
+
+    // Fix TYPE_NUMBER fields in log table (LENGTH/DECIMALS instead of raw number).
+    if ($oldversion < 2026111901) {
+
+        if ($dbmanager->table_exists('local_llmgrader_log')) {
+            $table = $dbmanager->get_table('local_llmgrader_log');
+
+            // Fix score field: convert from TYPE_NUMBER to TYPE_DOUBLE.
+            if ($table->has_field('score') && $table->getField('score')->getType() === XMLDB_TYPE_NUMBER) {
+                $field = new xmldb_field('score', XMLDB_TYPE_DOUBLE, 10, null, null, null, null);
+                $dbmanager->change_field_type($table, $field);
+            }
+
+            // Fix maxscore field: convert from TYPE_NUMBER to TYPE_DOUBLE.
+            if ($table->has_field('maxscore') && $table->getField('maxscore')->getType() === XMLDB_TYPE_NUMBER) {
+                $field = new xmldb_field('maxscore', XMLDB_TYPE_DOUBLE, 10, null, null, null, null);
+                $dbmanager->change_field_type($table, $field);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026111901, 'local', 'llmgrader');
     }
 
     return true;
