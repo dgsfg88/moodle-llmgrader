@@ -26,10 +26,13 @@ use local_llmgrader\local\config_provider;
 use local_llmgrader\local\course_config_manager;
 use local_llmgrader\form\course_config_form;
 
+require_once($CFG->dirroot . '/local/llmgrader/classes/local/config_provider.php');
+require_once($CFG->dirroot . '/local/llmgrader/classes/local/course_config_manager.php');
+require_once($CFG->dirroot . '/local/llmgrader/classes/form/course_config_form.php');
+
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/course/lib.php');
-require_once($CFG->dirroot . '/local/llmgrader/classes/form/course_config_form.php');
 
 $courseid = required_param('id', PARAM_INT);
 $save = optional_param('save', null, PARAM_RAW);

@@ -26,10 +26,13 @@ use local_llmgrader\local\config_provider;
 use local_llmgrader\local\quiz_config_manager;
 use local_llmgrader\form\quiz_config_form;
 
+require_once($CFG->dirroot . '/local/llmgrader/classes/local/config_provider.php');
+require_once($CFG->dirroot . '/local/llmgrader/classes/local/quiz_config_manager.php');
+require_once($CFG->dirroot . '/local/llmgrader/classes/form/quiz_config_form.php');
+
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/quiz/lib.php');
-require_once($CFG->dirroot . '/local/llmgrader/classes/form/quiz_config_form.php');
 
 $cmid = required_param('cmid', PARAM_INT);
 $save = optional_param('save', null, PARAM_RAW);
