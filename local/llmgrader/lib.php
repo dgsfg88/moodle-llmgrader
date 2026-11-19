@@ -53,3 +53,68 @@ function local_llmgrader_get_grading_stats(): object {
 
     return $stats;
 }
+
+/**
+ * Extend the course administration menu.
+ *
+ * @param navigation_node $navigation The navigation node to extend.
+ * @param stdClass $course The course to which navigation is being added.
+ * @param context_course $context The course context.
+ */
+function local_llmgrader_extend_navigation_course(\navigation_node $navigation, \stdClass $course, \context_course $context): void {
+    // Check if user has capability to view or configure.
+    if (!has_capability('local/llmgrader:viewconfiguration', $context) &&
+        !has_capability('local/llmgrader:configurecourse', $context)) {
+        return;
+    }
+
+    // Check if plugin is enabled at any level.
+    if (!\local_llmgrader\local\config_provider::is_enabled(0, $course->id)) {
+        return;
+    }
+
+    $url = new \moodle_url('/local/llmgrader/course_config.php', ['id' => $course->id]);
+    $node = \navigation_node::create(
+        get_string('pluginname', 'local_llmgrader'),
+        $url,
+        \navigation_node::TYPE_SETTING,
+        get_string('pluginname', 'local_llmgrader'),
+        'llmgrader_course_config',
+        new \pix_icon('i/settings', '')
+    );
+    $navigation->add_node($node);
+}
+
+/**
+ * Extend the quiz administration menu.
+ *
+ * @param navigation_node $navigation The navigation node to extend.
+ * @param stdClass $quiz The quiz to which navigation is being added.
+ * @param context_module $context The quiz context.
+ */
+function local_llmgrader_extend_navigation_quiz(\navigation_node $navigation, \stdClass $quiz, \context_module $context): void {
+    // Check if user has capability to view or configure.
+    if (!has_capability('local/llmgrader:viewconfiguration', $context) &&
+        !has_capability('local/llmgrader:configurequiz', $context)) {
+        return;
+    }
+
+    // Get course ID for config check.
+    $courseid = $quiz->course;
+
+    // Check if plugin is enabled at any level.
+    if (!\local_llmgrader\local\config_provider::is_enabled($quiz->id, $courseid)) {
+        return;
+    }
+
+    $url = new \moodle_url('/local/llmgrader/quiz_config.php', ['id' => $quiz->id]);
+    $node = \navigation_node::create(
+        get_string('pluginname', 'local_llmgrader'),
+        $url,
+        \navigation_node::TYPE_SETTING,
+        get_string('pluginname', 'local_llmgrader'),
+        'llmgrader_quiz_config',
+        new \pix_icon('i/settings', '')
+    );
+    $navigation->add_node($node);
+}
