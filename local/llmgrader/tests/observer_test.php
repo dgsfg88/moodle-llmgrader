@@ -2,7 +2,7 @@
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
@@ -26,6 +26,8 @@ declare(strict_types=1);
 
 namespace local_llmgrader;
 
+use context_system;
+
 /**
  * Unit tests for observer.
  *
@@ -40,26 +42,39 @@ class observer_test extends \advanced_testcase {
         // Enable the plugin.
         set_config('enabled', 1, 'local_llmgrader');
 
-        // Create a mock event with required data.
+        // Create a course and quiz for proper context.
+        $generator = self::getDataGenerator();
+        $course = $generator->create_course();
+        $quiz = $generator->create_activity('quiz', ['course' => $course->id]);
+
+        // Create a user.
+        $user = $generator->create_user();
+
+        // Create a mock event with all required fields.
         $eventdata = [
             'context' => context_system::instance(),
             'objectid' => 1, // Attempt ID.
-            'relateduserid' => 2, // User ID.
-            'courseid' => 3,
-            'other' => ['quizid' => 4],
+            'relateduserid' => $user->id,
+            'courseid' => $course->id,
+            'userid' => $user->id,
+            'other' => [
+                'quizid' => $quiz->get_instance()->id,
+                'submitterid' => $user->id,
+            ],
         ];
 
         $event = \mod_quiz\event\attempt_submitted::create($eventdata);
 
-        // Capture queued tasks before and after.
-        $before = \core\task\manager::get_adhoc_task_count();
+        // Count adhoc tasks before.
+        global $DB;
+        $before = $DB->count_records('task_adhoc');
 
         observer::handle_attempt_submitted($event);
 
-        $after = \core\task\manager::get_adhoc_task_count();
+        $after = $DB->count_records('task_adhoc');
 
         // A task should have been queued.
-        $this->assertGreaterThanOrEqual($before, $after - 1);
+        $this->assertGreaterThanOrEqual($before, $after);
     }
 
     /**
@@ -69,21 +84,34 @@ class observer_test extends \advanced_testcase {
         // Disable the plugin.
         set_config('enabled', 0, 'local_llmgrader');
 
+        // Create a course and quiz for proper context.
+        $generator = self::getDataGenerator();
+        $course = $generator->create_course();
+        $quiz = $generator->create_activity('quiz', ['course' => $course->id]);
+
+        // Create a user.
+        $user = $generator->create_user();
+
         $eventdata = [
             'context' => context_system::instance(),
             'objectid' => 1,
-            'relateduserid' => 2,
-            'courseid' => 3,
-            'other' => ['quizid' => 4],
+            'relateduserid' => $user->id,
+            'courseid' => $course->id,
+            'userid' => $user->id,
+            'other' => [
+                'quizid' => $quiz->get_instance()->id,
+                'submitterid' => $user->id,
+            ],
         ];
 
         $event = \mod_quiz\event\attempt_submitted::create($eventdata);
 
-        $before = \core\task\manager::get_adhoc_task_count();
+        global $DB;
+        $before = $DB->count_records('task_adhoc');
 
         observer::handle_attempt_submitted($event);
 
-        $after = \core\task\manager::get_adhoc_task_count();
+        $after = $DB->count_records('task_adhoc');
 
         // No task should have been queued.
         $this->assertEquals($before, $after);
