@@ -108,3 +108,56 @@ function local_llmgrader_extend_navigation_quiz(\navigation_node $navigation, \s
     );
     $navigation->add_node($node);
 }
+
+/**
+ * Extend the admin settings navigation.
+ *
+ * @param navigation_node $navigation The navigation node to extend.
+ * @param context_system $context The system context.
+ */
+function local_llmgrader_extend_navigation_admin(\navigation_node $navigation, \context_system $context): void {
+    // Check if user has site config capability.
+    if (!has_capability('moodle/site:config', $context)) {
+        return;
+    }
+
+    // Check if the localplugins category exists in navigation.
+    $localplugins = $navigation->get('localplugins');
+    if (!$localplugins) {
+        return;
+    }
+
+    // Add LLM Grader category under local plugins.
+    $llmgradercategory = \navigation_node::create(
+        get_string('pluginname', 'local_llmgrader'),
+        null,
+        \navigation_node::TYPE_CATEGORY,
+        get_string('pluginname', 'local_llmgrader'),
+        'llmgrader_admin',
+        new \pix_icon('i/settings', '')
+    );
+
+    // Add global settings link.
+    $settingsurl = new \moodle_url('/admin/settings.php', ['section' => 'local_llmgrader']);
+    $llmgradercategory->add_node(\navigation_node::create(
+        get_string('settings', 'local_llmgrader'),
+        $settingsurl,
+        \navigation_node::TYPE_SETTING,
+        get_string('settings', 'local_llmgrader'),
+        'llmgrader_global_settings',
+        new \pix_icon('i/settings', '')
+    ));
+
+    // Add course configuration link.
+    $courseconfigurl = new \moodle_url('/local/llmgrader/course_config.php', ['id' => 0]);
+    $llmgradercategory->add_node(\navigation_node::create(
+        get_string('configurecourses', 'local_llmgrader'),
+        $courseconfigurl,
+        \navigation_node::TYPE_SETTING,
+        get_string('configurecourses', 'local_llmgrader'),
+        'llmgrader_course_config_admin',
+        new \pix_icon('i/settings', '')
+    ));
+
+    $localplugins->add_node($llmgradercategory);
+}
