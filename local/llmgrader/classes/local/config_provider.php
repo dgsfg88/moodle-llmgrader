@@ -145,7 +145,8 @@ class config_provider {
         global $DB;
 
         try {
-            return $DB->get_record('local_llmgrader_course_config', ['courseid' => $courseid]);
+            $result = $DB->get_record('local_llmgrader_course_config', ['courseid' => $courseid]);
+            return $result ?: null;
         } catch (\dml_exception $e) {
             // Table may not exist yet (pre-upgrade).
             return null;
@@ -162,7 +163,8 @@ class config_provider {
         global $DB;
 
         try {
-            return $DB->get_record('local_llmgrader_quiz_config', ['quizid' => $quizid]);
+            $result = $DB->get_record('local_llmgrader_quiz_config', ['quizid' => $quizid]);
+            return $result ?: null;
         } catch (\dml_exception $e) {
             // Table may not exist yet (pre-upgrade).
             return null;
