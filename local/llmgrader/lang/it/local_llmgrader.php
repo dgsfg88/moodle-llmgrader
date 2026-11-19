@@ -2,7 +2,7 @@
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
@@ -29,6 +29,9 @@ $string['pluginname'] = 'LLM Grader';
 $string['llmgrader:configure'] = 'Configurare LLM Grader';
 $string['llmgrader:viewlog'] = 'Visualizzare i log di valutazione';
 $string['llmgrader:manualregrade'] = 'Richiedere valutazione manuale';
+$string['llmgrader:configurecourse'] = 'Configurare LLM Grader a livello corso';
+$string['llmgrader:configurequiz'] = 'Configurare LLM Grader a livello quiz';
+$string['llmgrader:viewconfiguration'] = 'Visualizzare configurazione LLM Grader';
 
 // Settings.
 $string['settingsheading'] = 'Impostazioni LLM Grader';
@@ -71,6 +74,29 @@ $string['concurrencyheading'] = 'Impostazioni concorrenza';
 $string['maxconcurrent'] = 'Richieste massime concorrenti';
 $string['maxconcurrent_desc'] = 'Numero massimo di richieste LLM simultanee.';
 
+// Multi-level configuration.
+$string['multilevelheading'] = 'Configurazione multi-livello';
+$string['multilevel_desc'] = 'LLM Grader supporta la configurazione delle impostazioni LLM a tre livelli: globale (sito), per corso e per quiz. Le impostazioni si ereditano dal livello più basso al più alto (quiz > corso > globale). Un campo vuoto eredita il valore dal livello inferiore.';
+$string['configurecourses'] = 'Configura corsi';
+$string['courseconfigheading'] = 'Configurazione LLM Grader - Corso';
+$string['courseconfigdesc'] = 'Configura le impostazioni LLM specifiche per questo corso. Le impostazioni vuote ereditano i valori globali.';
+$string['courseconfigreadonly'] = 'Non hai i permessi per modificare la configurazione di questo corso.';
+$string['quizconfigheading'] = 'Configurazione LLM Grader - Quiz';
+$string['quizconfigdesc'] = 'Configura le impostazioni LLM specifiche per questo quiz. Le impostazioni vuote ereditano i valori dal corso o dai valori globali.';
+$string['quizconfigreadonly'] = 'Non hai i permessi per modificare la configurazione di questo quiz.';
+$string['quizconfignote'] = 'La configurazione a livello di quiz è accessibile dalla pagina di modifica del quiz (sezione "Configurazione LLM Grader").';
+$string['inheritanceinfo'] = 'Informazioni ereditarietà configurazione';
+$string['configlevel'] = 'Livello configurazione';
+$string['configlevelglobal'] = 'Globale (sito)';
+$string['configlevelcourse'] = 'Corso';
+$string['configlevelquiz'] = 'Quiz';
+$string['overridden_by_course'] = 'Override corso';
+$string['overridden_by_quiz'] = 'Override quiz';
+$string['saveconfig'] = 'Salva configurazione';
+$string['resettoinherit'] = 'Ripristina eredità globale';
+$string['configsaved'] = 'Configurazione salvata con successo.';
+$string['configreset'] = 'Configurazione reimpostata. Verranno utilizzati i valori globali.';
+
 // Connection test.
 $string['testconnection'] = 'Verifica connessione';
 $string['testconnectionbutton'] = 'Verifica connessione API';
@@ -87,6 +113,7 @@ $string['statusretry_scheduled'] = 'Retry programmato';
 $string['statusfailed'] = 'Fallita';
 $string['statusskipped'] = 'Saltata';
 $string['statusmanual_review'] = 'Revisione manuale';
+$string['gradinglogs'] = 'Log di valutazione';
 
 // Error strings.
 $string['noapiendpoint'] = 'Endpoint API non configurato. Contattare l\'amministratore del sito.';
@@ -101,6 +128,10 @@ $string['missing_comment'] = 'La risposta LLM non contiene il campo "comment".';
 $string['invalid_score'] = 'Il punteggio restituito dal modello non è un numero valido.';
 $string['negative_score'] = 'Il punteggio restituito dal modello è negativo.';
 $string['empty_comment'] = 'Il commento restituito dal modello è vuoto.';
+$string['nopermissions'] = 'Permessi insufficienti per eseguire questa operazione.';
+$string['error_invalid_url'] = 'L\'URL inserito non è valido.';
+$string['error_temperature_range'] = 'La temperatura deve essere compresa tra 0.0 e 2.0.';
+$string['error_quiz_mismatch'] = 'Errore di validazione: il quiz non appartiene al corso specificato.';
 
 // Privacy.
 $string['privacy:metadata:llmgrader_log'] = 'Il plugin LLM Grader archivia un registro delle operazioni di valutazione per tracciare lo stato della valutazione automatica.';
@@ -115,5 +146,27 @@ $string['privacy:metadata:log:retrycount'] = 'Numero di tentativi di valutazione
 $string['privacy:metadata:log:timecreated'] = 'Timestamp di creazione del record.';
 $string['privacy:metadata:log:timemodified'] = 'Timestamp dell\'ultima modifica.';
 $string['privacy:metadata:log:timecompleted'] = 'Timestamp di completamento.';
+$string['privacy:metadata:log:configlevel'] = 'Livello della configurazione utilizzata (global, course, quiz).';
+$string['privacy:metadata:log:configid'] = 'ID del record di configurazione utilizzato.';
 $string['privacy:metadata:llm_provider'] = 'I dati delle risposte degli studenti vengono inviati a un provider LLM esterno per la valutazione automatica.';
 $string['privacy:metadata:external:purpose'] = 'Elaborazione esterna dei dati per la valutazione automatizzata delle risposte essay tramite Intelligenza Artificiale.';
+$string['privacy:metadata:course_config'] = 'Configurazione LLM Grader specifica per il corso, con override delle impostazioni globali.';
+$string['privacy:metadata:course_config:courseid'] = 'ID del corso per cui è stata configurata la valutazione LLM.';
+$string['privacy:metadata:course_config:enabled'] = 'Stato abilitazione della valutazione LLM per il corso.';
+$string['privacy:metadata:course_config:api_endpoint'] = 'Endpoint API configurato per il corso.';
+$string['privacy:metadata:course_config:model'] = 'Modello LLM configurato per il corso.';
+$string['privacy:metadata:course_config:system_prompt'] = 'Prompt di sistema configurato per il corso.';
+$string['privacy:metadata:course_config:feedback_language'] = 'Lingua del feedback configurata per il corso.';
+$string['privacy:metadata:quiz_config'] = 'Configurazione LLM Grader specifica per il quiz, con override delle impostazioni del corso e globali.';
+$string['privacy:metadata:quiz_config:quizid'] = 'ID del quiz per cui è stata configurata la valutazione LLM.';
+$string['privacy:metadata:quiz_config:courseid'] = 'ID del corso di appartenenza del quiz.';
+$string['privacy:metadata:quiz_config:enabled'] = 'Stato abilitazione della valutazione LLM per il quiz.';
+$string['privacy:metadata:quiz_config:api_endpoint'] = 'Endpoint API configurato per il quiz.';
+$string['privacy:metadata:quiz_config:model'] = 'Modello LLM configurato per il quiz.';
+$string['privacy:metadata:quiz_config:system_prompt'] = 'Prompt di sistema configurato per il quiz.';
+$string['privacy:metadata:quiz_config:feedback_language'] = 'Lingua del feedback configurata per il quiz.';
+
+// Settings (additional).
+$string['connectionheading'] = 'Impostazioni connessione';
+$string['generationheading'] = 'Impostazioni generazione';
+$string['settings'] = 'Impostazioni';
