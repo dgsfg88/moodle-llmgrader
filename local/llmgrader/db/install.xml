@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/llmgrader/db" VERSION="2026111800" COMMENT="XMLDB file for Moodle local/llmgrader"
+<XMLDB PATH="local/llmgrader/db" VERSION="2026111900" COMMENT="XMLDB file for Moodle local/llmgrader"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -24,6 +24,8 @@
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Last modification time"/>
         <FIELD NAME="timecompleted" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Completion time"/>
         <FIELD NAME="error" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Error message if failed"/>
+        <FIELD NAME="configlevel" TYPE="char" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Configuration level: global, course, quiz"/>
+        <FIELD NAME="configid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="ID of the configuration record (courseid or quizid)"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -33,6 +35,65 @@
         <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
         <INDEX NAME="nextretry" UNIQUE="false" FIELDS="nextretry"/>
         <INDEX NAME="unique_op" UNIQUE="true" FIELDS="attemptid, slot, questionid, questionversion"/>
+        <INDEX NAME="configlevel" UNIQUE="false" FIELDS="configlevel, configid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_llmgrader_course_config" COMMENT="Per-course LLM Grader configuration">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Is LLM grading enabled for this course?"/>
+        <FIELD NAME="api_endpoint" TYPE="char" LENGTH="512" NOTNULL="false" SEQUENCE="false" COMMENT="API endpoint URL (null = inherit from global)"/>
+        <FIELD NAME="api_key" TYPE="char" LENGTH="512" NOTNULL="false" SEQUENCE="false" COMMENT="API key (null = inherit from global)"/>
+        <FIELD NAME="model" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="LLM model name (null = inherit from global)"/>
+        <FIELD NAME="temperature" TYPE="number" PRECISION="3" SCALE="2" NOTNULL="false" DEFAULT="0.2" SEQUENCE="false" COMMENT="Temperature value (null = inherit from global)"/>
+        <FIELD NAME="max_tokens" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Max output tokens (null = inherit from global)"/>
+        <FIELD NAME="http_timeout" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="HTTP timeout in seconds (null = inherit from global)"/>
+        <FIELD NAME="system_prompt" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="System prompt (null = inherit from global)"/>
+        <FIELD NAME="feedback_language" TYPE="char" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Feedback language code (null = inherit from global)"/>
+        <FIELD NAME="retry_enabled" TYPE="int" LENGTH="1" NOTNULL="false" DEFAULT="1" SEQUENCE="false" COMMENT="Retry enabled (null = inherit from global)"/>
+        <FIELD NAME="max_retries" TYPE="int" LENGTH="3" NOTNULL="false" DEFAULT="8" SEQUENCE="false" COMMENT="Max retries (null = inherit from global)"/>
+        <FIELD NAME="base_retry_delay" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="5" SEQUENCE="false" COMMENT="Base retry delay in seconds (null = inherit from global)"/>
+        <FIELD NAME="max_backoff_delay" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="900" SEQUENCE="false" COMMENT="Max backoff delay in seconds (null = inherit from global)"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Record creation time"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Last modification time"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid" UNIQUE="true" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_llmgrader_quiz_config" COMMENT="Per-quiz LLM Grader configuration">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="quizid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Quiz ID"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID (for validation)"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Is LLM grading enabled for this quiz?"/>
+        <FIELD NAME="api_endpoint" TYPE="char" LENGTH="512" NOTNULL="false" SEQUENCE="false" COMMENT="API endpoint URL (null = inherit from course/global)"/>
+        <FIELD NAME="api_key" TYPE="char" LENGTH="512" NOTNULL="false" SEQUENCE="false" COMMENT="API key (null = inherit from course/global)"/>
+        <FIELD NAME="model" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="LLM model name (null = inherit from course/global)"/>
+        <FIELD NAME="temperature" TYPE="number" PRECISION="3" SCALE="2" NOTNULL="false" DEFAULT="0.2" SEQUENCE="false" COMMENT="Temperature value (null = inherit from course/global)"/>
+        <FIELD NAME="max_tokens" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Max output tokens (null = inherit from course/global)"/>
+        <FIELD NAME="http_timeout" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="HTTP timeout in seconds (null = inherit from course/global)"/>
+        <FIELD NAME="system_prompt" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="System prompt (null = inherit from course/global)"/>
+        <FIELD NAME="feedback_language" TYPE="char" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Feedback language code (null = inherit from course/global)"/>
+        <FIELD NAME="retry_enabled" TYPE="int" LENGTH="1" NOTNULL="false" DEFAULT="1" SEQUENCE="false" COMMENT="Retry enabled (null = inherit from course/global)"/>
+        <FIELD NAME="max_retries" TYPE="int" LENGTH="3" NOTNULL="false" DEFAULT="8" SEQUENCE="false" COMMENT="Max retries (null = inherit from course/global)"/>
+        <FIELD NAME="base_retry_delay" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="5" SEQUENCE="false" COMMENT="Base retry delay in seconds (null = inherit from course/global)"/>
+        <FIELD NAME="max_backoff_delay" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="900" SEQUENCE="false" COMMENT="Max backoff delay in seconds (null = inherit from course/global)"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Record creation time"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Last modification time"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="quizid" UNIQUE="true" FIELDS="quizid"/>
+        <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
       </INDEXES>
     </TABLE>
   </TABLES>
