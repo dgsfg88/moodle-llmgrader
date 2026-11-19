@@ -2,7 +2,7 @@
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
@@ -27,6 +27,7 @@
 namespace local_llmgrader;
 
 use core\task\manager;
+use local_llmgrader\local\config_provider;
 use local_llmgrader\task\grade_attempt;
 
 defined('MOODLE_INTERNAL') || die();
@@ -45,11 +46,6 @@ class observer {
      * @param \mod_quiz\event\attempt_submitted $event
      */
     public static function handle_attempt_submitted(\mod_quiz\event\attempt_submitted $event): void {
-        // Verify plugin is enabled.
-        if (!get_config('local_llmgrader', 'enabled')) {
-            return;
-        }
-
         $attemptid = $event->objectid;
         $quizid = $event->get_data()['other']['quizid'] ?? 0;
 
@@ -57,8 +53,21 @@ class observer {
             return;
         }
 
-        // Queue the grading task. The task will inspect individual questions.
-        $task = grade_attempt::instance($attemptid, $quizid);
+        // Get course ID from quiz.
+        global $DB;
+        $quiz = $DB->get_record('quiz', ['id' => $quizid], 'course', IGNORE_MISSING);
+        if (!$quiz) {
+            return;
+        }
+        $courseid = (int)$quiz->course;
+
+        // Check if LLM grading is enabled at any level in the inheritance chain.
+        if (!config_provider::is_enabled($quizid, $courseid)) {
+            return;
+        }
+
+        // Queue the grading task with quiz and course IDs for config resolution.
+        $task = grade_attempt::instance($attemptid, $quizid, $courseid);
         manager::queue_adhoc_task($task);
     }
 }

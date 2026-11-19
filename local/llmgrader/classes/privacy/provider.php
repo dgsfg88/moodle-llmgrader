@@ -2,7 +2,7 @@
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
@@ -59,8 +59,37 @@ class provider implements
                 'timecreated' => 'privacy:metadata:log:timecreated',
                 'timemodified' => 'privacy:metadata:log:timemodified',
                 'timecompleted' => 'privacy:metadata:log:timecompleted',
+                'configlevel' => 'privacy:metadata:log:configlevel',
+                'configid' => 'privacy:metadata:log:configid',
             ],
             'privacy:metadata:llmgrader_log'
+        );
+
+        $collection->add_database_table(
+            'local_llmgrader_course_config',
+            [
+                'courseid' => 'privacy:metadata:course_config:courseid',
+                'enabled' => 'privacy:metadata:course_config:enabled',
+                'api_endpoint' => 'privacy:metadata:course_config:api_endpoint',
+                'model' => 'privacy:metadata:course_config:model',
+                'system_prompt' => 'privacy:metadata:course_config:system_prompt',
+                'feedback_language' => 'privacy:metadata:course_config:feedback_language',
+            ],
+            'privacy:metadata:course_config'
+        );
+
+        $collection->add_database_table(
+            'local_llmgrader_quiz_config',
+            [
+                'quizid' => 'privacy:metadata:quiz_config:quizid',
+                'courseid' => 'privacy:metadata:quiz_config:courseid',
+                'enabled' => 'privacy:metadata:quiz_config:enabled',
+                'api_endpoint' => 'privacy:metadata:quiz_config:api_endpoint',
+                'model' => 'privacy:metadata:quiz_config:model',
+                'system_prompt' => 'privacy:metadata:quiz_config:system_prompt',
+                'feedback_language' => 'privacy:metadata:quiz_config:feedback_language',
+            ],
+            'privacy:metadata:quiz_config'
         );
 
         $collection->add_external_location_link(
@@ -154,6 +183,8 @@ class provider implements
                     'timecreated' => $log->timecreated,
                     'timecompleted' => $log->timecompleted,
                     'error' => $log->error,
+                    'configlevel' => $log->configlevel ?? 'global',
+                    'configid' => $log->configid ?? 0,
                 ];
 
                 $writer->export_related_data(
@@ -259,7 +290,7 @@ class provider implements
         // Delete grading logs for these users' attempts.
         $sql = "DELETE FROM {local_llmgrader_log} ll
                   INNER JOIN {quiz_attempts} qa ON ll.attemptid = qa.id
-                 WHERE qa.userid {$insql}";
+                  WHERE qa.userid {$insql}";
 
         $DB->execute($sql, $inparams);
     }
