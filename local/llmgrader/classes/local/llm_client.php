@@ -24,7 +24,7 @@
 
 namespace local_llmgrader\local;
 
-defined('MOODLE_INTERNAL') || die();
+// MOODLE_INTERNAL check removed - class is autoloaded
 
 /**
  * LLM client class.

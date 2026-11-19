@@ -24,7 +24,7 @@
 
 namespace local_llmgrader\form;
 
-defined('MOODLE_INTERNAL') || die();
+// MOODLE_INTERNAL check removed - class is autoloaded
 
 require_once($CFG->libdir . '/formslib.php');
 

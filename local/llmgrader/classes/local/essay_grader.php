@@ -28,7 +28,7 @@ use question_attempt;
 use question_definition;
 use question_usage_by_activity;
 
-defined('MOODLE_INTERNAL') || die();
+// MOODLE_INTERNAL check removed - class is autoloaded
 
 /**
  * Essay grader class.
