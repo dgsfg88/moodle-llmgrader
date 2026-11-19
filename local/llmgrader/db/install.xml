@@ -13,8 +13,8 @@
         <FIELD NAME="questionversion" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Question version used"/>
         <FIELD NAME="status" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="pending" SEQUENCE="false" COMMENT="Grading status"/>
         <FIELD NAME="model" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="LLM model used"/>
-        <FIELD NAME="score" TYPE="number" PRECISION="5" SCALE="2" NOTNULL="false" SEQUENCE="false" COMMENT="Score assigned"/>
-        <FIELD NAME="maxscore" TYPE="number" PRECISION="5" SCALE="2" NOTNULL="false" SEQUENCE="false" COMMENT="Maximum score"/>
+        <FIELD NAME="score" TYPE="number" LENGTH="5" DECIMALS="2" NOTNULL="false" SEQUENCE="false" COMMENT="Score assigned"/>
+        <FIELD NAME="maxscore" TYPE="number" LENGTH="5" DECIMALS="2" NOTNULL="false" SEQUENCE="false" COMMENT="Maximum score"/>
         <FIELD NAME="feedback" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Feedback text (sanitized HTML)"/>
         <FIELD NAME="retrycount" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of retry attempts"/>
         <FIELD NAME="nextretry" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Next scheduled retry time"/>
@@ -47,7 +47,7 @@
         <FIELD NAME="api_endpoint" TYPE="char" LENGTH="512" NOTNULL="false" SEQUENCE="false" COMMENT="API endpoint URL (null = inherit from global)"/>
         <FIELD NAME="api_key" TYPE="char" LENGTH="512" NOTNULL="false" SEQUENCE="false" COMMENT="API key (null = inherit from global)"/>
         <FIELD NAME="model" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="LLM model name (null = inherit from global)"/>
-        <FIELD NAME="temperature" TYPE="number" PRECISION="3" SCALE="2" NOTNULL="false" DEFAULT="0.2" SEQUENCE="false" COMMENT="Temperature value (null = inherit from global)"/>
+        <FIELD NAME="temperature" TYPE="number" LENGTH="3" DECIMALS="2" NOTNULL="false" DEFAULT="0.2" SEQUENCE="false" COMMENT="Temperature value (null = inherit from global)"/>
         <FIELD NAME="max_tokens" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Max output tokens (null = inherit from global)"/>
         <FIELD NAME="http_timeout" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="HTTP timeout in seconds (null = inherit from global)"/>
         <FIELD NAME="system_prompt" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="System prompt (null = inherit from global)"/>
@@ -76,7 +76,7 @@
         <FIELD NAME="api_endpoint" TYPE="char" LENGTH="512" NOTNULL="false" SEQUENCE="false" COMMENT="API endpoint URL (null = inherit from course/global)"/>
         <FIELD NAME="api_key" TYPE="char" LENGTH="512" NOTNULL="false" SEQUENCE="false" COMMENT="API key (null = inherit from course/global)"/>
         <FIELD NAME="model" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="LLM model name (null = inherit from course/global)"/>
-        <FIELD NAME="temperature" TYPE="number" PRECISION="3" SCALE="2" NOTNULL="false" DEFAULT="0.2" SEQUENCE="false" COMMENT="Temperature value (null = inherit from course/global)"/>
+        <FIELD NAME="temperature" TYPE="number" LENGTH="3" DECIMALS="2" NOTNULL="false" DEFAULT="0.2" SEQUENCE="false" COMMENT="Temperature value (null = inherit from course/global)"/>
         <FIELD NAME="max_tokens" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Max output tokens (null = inherit from course/global)"/>
         <FIELD NAME="http_timeout" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="HTTP timeout in seconds (null = inherit from course/global)"/>
         <FIELD NAME="system_prompt" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="System prompt (null = inherit from course/global)"/>
