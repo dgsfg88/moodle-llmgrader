@@ -68,11 +68,6 @@ function local_llmgrader_extend_navigation_course(\navigation_node $navigation, 
         return;
     }
 
-    // Check if plugin is enabled at any level.
-    if (!\local_llmgrader\local\config_provider::is_enabled(0, $course->id)) {
-        return;
-    }
-
     $url = new \moodle_url('/local/llmgrader/course_config.php', ['id' => $course->id]);
     $node = \navigation_node::create(
         get_string('pluginname', 'local_llmgrader'),
@@ -99,13 +94,8 @@ function local_llmgrader_extend_navigation_quiz(\navigation_node $navigation, \s
         return;
     }
 
-    // Get course ID for config check.
+    // Get course ID for course context lookup.
     $courseid = $quiz->course;
-
-    // Check if plugin is enabled at any level.
-    if (!\local_llmgrader\local\config_provider::is_enabled($quiz->id, $courseid)) {
-        return;
-    }
 
     $url = new \moodle_url('/local/llmgrader/quiz_config.php', ['id' => $quiz->id]);
     $node = \navigation_node::create(
