@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->requires  = 2025041412.00; // Moodle 5.0.12 (Build: 20261112).
 $plugin->component = 'local_llmgrader';
-$plugin->release   = '1.0.0';
-$plugin->version   = 2026111800;
+$plugin->release   = '1.1.0';
+$plugin->version   = 2026111900;
 $plugin->maturity  = MATURITY_ALPHA;
 $plugin->cron      = 0;

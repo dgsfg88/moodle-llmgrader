@@ -144,4 +144,29 @@ if ($hassiteconfig) {
         get_string('testconnectionbutton', 'local_llmgrader') . '">' .
         '</form></div>'
     ));
+
+    // Multi-level configuration section.
+    $settings->add(new admin_setting_heading(
+        'local_llmgrader/multilevelheading',
+        new lang_string('multilevelheading', 'local_llmgrader'),
+        new lang_string('multilevel_desc', 'local_llmgrader')
+    ));
+
+    // Link to course configuration page (managers can configure at course level).
+    $courseconfigurl = new moodle_url('/local/llmgrader/course_config.php', ['id' => 0]);
+    $settings->add(new admin_setting_description(
+        'local_llmgrader/courseconfiglink',
+        '',
+        '<div style="margin-top: 10px;">' .
+        '<a href="' . $courseconfigurl->out() . '" class="btn btn-secondary">' .
+        get_string('configurecourses', 'local_llmgrader') . '</a>' .
+        '</div>'
+    ));
+
+    // Note about quiz configuration.
+    $settings->add(new admin_setting_description(
+        'local_llmgrader/quizconfignote',
+        '',
+        '<p>' . get_string('quizconfignote', 'local_llmgrader') . '</p>'
+    ));
 }
