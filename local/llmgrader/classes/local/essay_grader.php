@@ -2,7 +2,7 @@
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
@@ -52,13 +52,19 @@ class essay_grader {
     /** @var response_parser */
     protected response_parser $parser;
 
+    /** @var object|null Effective configuration for this grading operation */
+    protected ?object $config = null;
+
     /**
      * Constructor.
+     *
+     * @param object|null $config Optional effective configuration. If null, global config is used.
      */
-    public function __construct() {
+    public function __construct(?object $config = null) {
         $this->converter = new content_converter();
-        $this->client = new llm_client();
+        $this->client = new llm_client($config);
         $this->parser = new response_parser();
+        $this->config = $config;
     }
 
     /**
@@ -68,16 +74,18 @@ class essay_grader {
      * @param \question_usage_by_activity $quba The question usage by activity.
      * @param int $slot The question slot number.
      * @param int $attemptid The quiz attempt ID.
+     * @param int $quizid The quiz ID (for config resolution).
+     * @param int $courseid The course ID (for config resolution).
      * @return array Grading result with score, maxscore, feedback, and model.
      * @throws \Exception On grading failure.
      */
-    public function grade(\qtype_essay_question $question, question_usage_by_activity $quba, int $slot, int $attemptid): array {
+    public function grade(\qtype_essay_question $question, question_usage_by_activity $quba, int $slot, int $attemptid, int $quizid = 0, int $courseid = 0): array {
         // Get student response.
         $qa = $quba->get_question_attempt($slot);
         $response = $this->get_student_response($qa);
 
-        // Build grading context.
-        $gradingcontext = $this->build_grading_context($question, $response, $quba, $attemptid);
+        // Build grading context with resolved config.
+        $gradingcontext = $this->build_grading_context($question, $response, $quba, $attemptid, $quizid, $courseid);
 
         // Send to LLM and get result.
         $llmresult = $this->client->send_request($gradingcontext);
@@ -123,12 +131,25 @@ class essay_grader {
      * @param array $response
      * @param \question_usage_by_activity $quba
      * @param int $attemptid
+     * @param int $quizid
+     * @param int $courseid
      * @return array The grading context for LLM prompt building.
      */
-    protected function build_grading_context(\qtype_essay_question $question, array $response, question_usage_by_activity $quba, int $attemptid): array {
+    protected function build_grading_context(\qtype_essay_question $question, array $response, question_usage_by_activity $quba, int $attemptid, int $quizid = 0, int $courseid = 0): array {
         // Get course context.
         $context = \context_module::instance($quba->get_context()->instanceid);
         $coursecontext = $context->get_course_context(false);
+
+        // Use provided config or resolve from context.
+        $config = $this->config;
+        if (!$config && ($quizid > 0 || $courseid > 0)) {
+            $config = config_provider::get_effective_config($quizid, $courseid);
+        }
+
+        // Fall back to global config if still no config available.
+        if (!$config) {
+            $config = config_provider::get_global_config();
+        }
 
         return [
             'question' => [
@@ -142,8 +163,8 @@ class essay_grader {
             'studentresponse' => $response['text'],
             'studentresponseformat' => $response['format'],
             'maxmark' => $question->maxmark,
-            'feedbacklanguage' => get_config('local_llmgrader', 'feedback_language') ?: 'it',
-            'systemprompt' => get_config('local_llmgrader', 'system_prompt') ?: '',
+            'feedbacklanguage' => $config->feedback_language ?: 'it',
+            'systemprompt' => $config->system_prompt ?: '',
         ];
     }
 

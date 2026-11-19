@@ -2,7 +2,7 @@
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
@@ -56,14 +56,25 @@ class llm_client {
 
     /**
      * Constructor.
+     *
+     * @param object|null $config Optional configuration object. If null, uses global config.
      */
-    public function __construct() {
-        $this->endpoint = get_config('local_llmgrader', 'api_endpoint') ?: '';
-        $this->apikey = get_config('local_llmgrader', 'api_key') ?: null;
-        $this->model = get_config('local_llmgrader', 'model') ?: 'gpt-4o';
-        $this->temperature = (float)(get_config('local_llmgrader', 'temperature') ?: 0.2);
-        $this->maxtokens = (int)(get_config('local_llmgrader', 'max_tokens') ?: 2048);
-        $this->timeout = (int)(get_config('local_llmgrader', 'http_timeout') ?: 120);
+    public function __construct(?object $config = null) {
+        if ($config) {
+            $this->endpoint = $config->api_endpoint ?: '';
+            $this->apikey = $config->api_key ?: null;
+            $this->model = $config->model ?: 'gpt-4o';
+            $this->temperature = (float)($config->temperature ?? 0.2);
+            $this->maxtokens = (int)($config->max_tokens ?? 2048);
+            $this->timeout = (int)($config->http_timeout ?? 120);
+        } else {
+            $this->endpoint = get_config('local_llmgrader', 'api_endpoint') ?: '';
+            $this->apikey = get_config('local_llmgrader', 'api_key') ?: null;
+            $this->model = get_config('local_llmgrader', 'model') ?: 'gpt-4o';
+            $this->temperature = (float)(get_config('local_llmgrader', 'temperature') ?: 0.2);
+            $this->maxtokens = (int)(get_config('local_llmgrader', 'max_tokens') ?: 2048);
+            $this->timeout = (int)(get_config('local_llmgrader', 'http_timeout') ?: 120);
+        }
     }
 
     /**

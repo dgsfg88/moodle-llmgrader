@@ -2,7 +2,7 @@
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// it under the terms of GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
@@ -44,11 +44,19 @@ class retry_manager {
 
     /**
      * Constructor.
+     *
+     * @param object|null $config Optional configuration object. If null, uses global config.
      */
-    public function __construct() {
-        $this->basedelay = (int)(get_config('local_llmgrader', 'base_retry_delay') ?: 5);
-        $this->maxdelay = (int)(get_config('local_llmgrader', 'max_backoff_delay') ?: 900);
-        $this->retryenabled = (bool)(get_config('local_llmgrader', 'retry_enabled') ?: 1);
+    public function __construct(?object $config = null) {
+        if ($config) {
+            $this->basedelay = (int)($config->base_retry_delay ?? 5);
+            $this->maxdelay = (int)($config->max_backoff_delay ?? 900);
+            $this->retryenabled = (bool)($config->retry_enabled ?? 1);
+        } else {
+            $this->basedelay = (int)(get_config('local_llmgrader', 'base_retry_delay') ?: 5);
+            $this->maxdelay = (int)(get_config('local_llmgrader', 'max_backoff_delay') ?: 900);
+            $this->retryenabled = (bool)(get_config('local_llmgrader', 'retry_enabled') ?: 1);
+        }
     }
 
     /**
