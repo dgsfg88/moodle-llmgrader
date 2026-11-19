@@ -36,6 +36,7 @@ $save = optional_param('save', null, PARAM_RAW);
 $reset = optional_param('resettoinherit', 0, PARAM_INT);
 $page = optional_param('page', 'config', PARAM_ALPHA);
 
+global $DB;
 $cm = get_coursemodule_from_id('quiz', $cmid, 0, false, MUST_EXIST);
 $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
@@ -97,10 +98,9 @@ if ($page === 'logs') {
                 get_string('slot'),
                 get_string('score'),
                 get_string('status'),
-                get_string('model'),
                 get_string('time'),
             ];
-            $table->align = ['left', 'left', 'center', 'right', 'center', 'left', 'center'];
+            $table->align = ['left', 'left', 'center', 'right', 'center', 'center'];
 
             foreach ($logs as $log) {
                 $user = $DB->get_record('user', ['id' => $log->userid], 'username');
@@ -114,7 +114,6 @@ if ($page === 'logs') {
                     $log->slot,
                     isset($log->score) ? number_format($log->score, 2) : '-',
                     $statuslabel,
-                    $log->model ?? '-',
                     userdate($log->timecompleted ?? $log->timecreated),
                 ];
             }

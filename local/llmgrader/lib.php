@@ -94,10 +94,14 @@ function local_llmgrader_extend_navigation_quiz(\navigation_node $navigation, \s
         return;
     }
 
-    // Get course ID for course context lookup.
-    $courseid = $quiz->course;
+    // Get course module ID for the quiz.
+    global $DB;
+    $cm = $DB->get_record('course_modules', ['instance' => $quiz->id, 'module' => $DB->get_field('modules', 'id', ['name' => 'quiz'])]);
+    if (!$cm) {
+        return;
+    }
 
-    $url = new \moodle_url('/local/llmgrader/quiz_config.php', ['id' => $quiz->id]);
+    $url = new \moodle_url('/local/llmgrader/quiz_config.php', ['cmid' => $cm->id]);
     $node = \navigation_node::create(
         get_string('pluginname', 'local_llmgrader'),
         $url,

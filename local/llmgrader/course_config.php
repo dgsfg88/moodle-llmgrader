@@ -36,6 +36,7 @@ $save = optional_param('save', null, PARAM_RAW);
 $reset = optional_param('resettoinherit', 0, PARAM_INT);
 $page = optional_param('page', 'config', PARAM_ALPHA);
 
+global $DB;
 $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
 $coursecontext = \context_course::instance($courseid);
 
@@ -99,24 +100,23 @@ if ($page === 'logs') {
                 get_string('slot'),
                 get_string('score'),
                 get_string('status'),
-                get_string('model'),
                 get_string('time'),
             ];
-            $table->align = ['left', 'left', 'center', 'right', 'center', 'left', 'center'];
+            $table->align = ['left', 'left', 'center', 'right', 'center', 'center'];
 
             foreach ($logs as $log) {
-                $quizurl = new moodle_url('/mod/quiz/view.php', ['id' => $DB->get_field('course_modules', 'id', ['instance' => $log->attemptid ? '' : ''], 'id')]);
-                $user = $DB->get_record('user', ['id' => $log->userid], 'username', MUST_EXIST);
+                $quizname = $log->quizname ?? get_string('unknown');
+                $user = $DB->get_record('user', ['id' => $log->userid], 'username');
+                $username = $user ? $user->username : '-';
 
                 $statuslabel = get_string('status' . $log->status, 'local_llmgrader');
 
                 $table->data[] = [
-                    format_string($log->quizname ?? ''),
-                    $user->username,
+                    format_string($quizname),
+                    $username,
                     $log->slot,
                     isset($log->score) ? number_format($log->score, 2) : '-',
                     $statuslabel,
-                    $log->model ?? '-',
                     userdate($log->timecompleted ?? $log->timecreated),
                 ];
             }
