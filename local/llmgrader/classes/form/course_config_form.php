@@ -78,7 +78,7 @@ class course_config_form extends \moodleform {
         $mform->setType('llmgrader_temperature', PARAM_FLOAT);
         $mform->addHelpButton('llmgrader_temperature', 'temperature', 'local_llmgrader');
         $mform->setDefault('llmgrader_temperature', '0.2');
-        $mform->setHint('llmgrader_temperature', '0.0 - 2.0');
+        $mform->addRule('llmgrader_temperature', get_string('error_temperature_range', 'local_llmgrader'), 'numeric', null, 'client');
 
         $mform->addElement('text', 'llmgrader_max_tokens', get_string('maxtokens', 'local_llmgrader'), ['size' => 10]);
         $mform->setType('llmgrader_max_tokens', PARAM_INT);

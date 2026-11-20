@@ -161,6 +161,7 @@ if ($reset && confirm_sesskey() && $hasconfigure) {
 }
 
 // Display the form.
+$quiz->cmid = $cmid;
 $mform = new quiz_config_form($url, ['quiz' => $quiz, 'course' => $course]);
 if ($config && !$save) {
     $mform->set_data($config);
