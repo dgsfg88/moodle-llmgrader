@@ -77,7 +77,7 @@ if ($page === 'logs') {
     echo '<h3>' . get_string('gradinglogs', 'local_llmgrader') . '</h3>';
 
     $attempts = $DB->get_records_sql("
-        SELECT DISTINCT qa.id, qa.quiz, qa.userid, qa.timefinish, c.shortname as coursetype
+        SELECT DISTINCT qa.id, qa.quiz, qa.userid, qa.timefinish
           FROM {quiz_attempts} qa
           INNER JOIN {quiz} q ON q.id = qa.quiz
           WHERE q.course = ?", [$courseid], 0, 100);

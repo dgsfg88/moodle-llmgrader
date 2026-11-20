@@ -71,7 +71,8 @@ class course_config_manager {
         global $DB;
 
         try {
-            return $DB->get_record('local_llmgrader_course_config', ['courseid' => $courseid]);
+            $record = $DB->get_record('local_llmgrader_course_config', ['courseid' => $courseid]);
+            return $record ?: null;
         } catch (\dml_exception $e) {
             return null;
         }

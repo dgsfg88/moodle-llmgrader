@@ -73,7 +73,8 @@ class quiz_config_manager {
         global $DB;
 
         try {
-            return $DB->get_record('local_llmgrader_quiz_config', ['quizid' => $quizid]);
+            $record = $DB->get_record('local_llmgrader_quiz_config', ['quizid' => $quizid]);
+            return $record ?: null;
         } catch (\dml_exception $e) {
             return null;
         }
