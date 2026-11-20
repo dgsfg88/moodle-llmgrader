@@ -33,7 +33,6 @@ use local_llmgrader\local\quiz_config_manager;
 use local_llmgrader\form\quiz_config_form;
 
 $cmid = required_param('cmid', PARAM_INT);
-$save = optional_param('save', null, PARAM_RAW);
 $reset = optional_param('resettoinherit', 0, PARAM_INT);
 $page = optional_param('page', 'config', PARAM_ALPHA);
 
@@ -61,8 +60,62 @@ $PAGE->set_context($modcontext);
 $PAGE->set_title(format_string($quiz->name) . ': ' . get_string('quizconfigheading', 'local_llmgrader'));
 $PAGE->set_heading(format_string($quiz->name));
 
+// --- Configuration form handling (must run before any output to allow redirects) ---
+$config = quiz_config_manager::get($quiz->id);
+$quiz->cmid = $cmid;
+$savewarning = false;
+
+// Reset to inherit (GET link with sesskey).
+if ($reset && confirm_sesskey() && $hasconfigure) {
+    quiz_config_manager::delete($quiz->id);
+    redirect($url, get_string('configreset', 'local_llmgrader'), 0);
+}
+
+// Build the form once.
+$mform = new quiz_config_form($url, ['quiz' => $quiz, 'course' => $course]);
+
+// Handle submission (redirect happens before any output).
+if ($mform->is_submitted()) {
+    if ($hasconfigure) {
+        // Validate quiz belongs to course.
+        if (!quiz_config_manager::validate_course($quiz->id, $course->id)) {
+            redirect($url, get_string('error_quiz_mismatch', 'local_llmgrader'), 0);
+        }
+        if ($data = $mform->get_data()) {
+            $configdata = quiz_config_manager::from_form_data($data);
+            $configdata->quizid = $quiz->id;
+            $configdata->courseid = $course->id;
+            quiz_config_manager::update($quiz->id, $configdata);
+            redirect($url, get_string('configsaved', 'local_llmgrader'), 0);
+        }
+    } else {
+        $savewarning = true;
+    }
+}
+
+// Populate the form with existing or effective data.
+if ($config && !$mform->is_submitted()) {
+    $mform->set_data($config);
+} else if (!$hasconfigure && !$mform->is_submitted()) {
+    // Read-only mode: show effective config without editing.
+    $effective = config_provider::get_effective_config($quiz->id, $course->id);
+    $mform->set_data($effective);
+
+    // Disable all form elements for read-only view.
+    $elements = $mform->getElements();
+    foreach ($elements as $element) {
+        if (method_exists($element, 'freeze')) {
+            $element->freeze();
+        }
+    }
+}
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('quizconfigheading', 'local_llmgrader'));
+
+if ($savewarning) {
+    echo $OUTPUT->notification(get_string('nopermissions', 'local_llmgrader'), 'warning');
+}
 
 // Navigation tabs.
 echo '<div class="tabtree"><ul class="nav nav-tabs">';
@@ -131,57 +184,27 @@ if ($page === 'logs') {
     exit;
 }
 
-// --- Configuration form handling ---
-$config = quiz_config_manager::get($quiz->id);
-$formdata = null;
-
-if ($save && confirm_sesskey()) {
-    if ($hasconfigure) {
-        // Validate quiz belongs to course.
-        if (!quiz_config_manager::validate_course($quiz->id, $course->id)) {
-            redirect($url, get_string('error_quiz_mismatch', 'local_llmgrader'), 0);
-        }
-
-        $mform = new quiz_config_form($url, ['quiz' => $quiz, 'course' => $course]);
-        if ($data = $mform->get_data()) {
-            $configdata = quiz_config_manager::from_form_data($data);
-            $configdata->quizid = $quiz->id;
-            $configdata->courseid = $course->id;
-            quiz_config_manager::update($quiz->id, $configdata);
-            redirect($url, get_string('configsaved', 'local_llmgrader'), 0);
-        }
-    } else {
-        echo '<div class="alert alert-warning">' . get_string('nopermissions', 'local_llmgrader') . '</div>';
-    }
-}
-
-if ($reset && confirm_sesskey() && $hasconfigure) {
-    quiz_config_manager::delete($quiz->id);
-    redirect($url, get_string('configreset', 'local_llmgrader'), 0);
-}
-
-// Display the form.
-$quiz->cmid = $cmid;
-$mform = new quiz_config_form($url, ['quiz' => $quiz, 'course' => $course]);
-if ($config && !$save) {
-    $mform->set_data($config);
-} else if (!$hasconfigure) {
-    // Read-only mode: show effective config without editing.
-    $effective = config_provider::get_effective_config($quiz->id, $course->id);
-    $mform->set_data($effective);
-
-    // Disable all form elements for read-only view.
-    $elements = $mform->getElements();
-    foreach ($elements as $element) {
-        if (method_exists($element, 'freeze')) {
-            $element->freeze();
-        }
-    }
-}
-
+// --- Configuration form display ---
 echo $OUTPUT->box_start('config-form-box');
 $mform->display();
 echo $OUTPUT->box_end();
+
+// Reset-to-inherit link (only when an explicit quiz config exists).
+if ($hasconfigure && $config) {
+    $reseturl = new moodle_url('/local/llmgrader/quiz_config.php', [
+        'cmid' => $cmid,
+        'resettoinherit' => 1,
+        'sesskey' => sesskey(),
+    ]);
+    echo \html_writer::div(
+        \html_writer::link(
+            $reseturl,
+            get_string('resettoinherit', 'local_llmgrader'),
+            ['class' => 'btn btn-outline-secondary btn-sm']
+        ),
+        'mt-2 mb-3'
+    );
+}
 
 // Show inheritance info.
 if ($hasview) {

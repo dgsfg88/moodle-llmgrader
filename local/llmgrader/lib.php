@@ -81,87 +81,57 @@ function local_llmgrader_extend_navigation_course(\navigation_node $navigation, 
 }
 
 /**
- * Extend the quiz administration menu.
+ * Extend the settings navigation for local plugins.
  *
- * @param navigation_node $navigation The navigation node to extend.
- * @param stdClass $quiz The quiz to which navigation is being added.
- * @param context_module $context The quiz context.
+ * This is the supported Moodle callback invoked for every page context. It is
+ * used here to add the quiz-level configuration link to the quiz activity
+ * settings menu (module context only, to avoid duplicating the course link
+ * already provided by local_llmgrader_extend_navigation_course()).
+ *
+ * @param navigation_node $settingsnav The settings navigation tree.
+ * @param context $context The current page context.
  */
-function local_llmgrader_extend_navigation_quiz(\navigation_node $navigation, \stdClass $quiz, \context_module $context): void {
-    // Check if user has capability to view or configure.
+function local_llmgrader_extend_settings_navigation(\navigation_node $settingsnav, \context $context): void {
+    // Only act on module contexts belonging to a quiz.
+    if (!$context instanceof \context_module) {
+        return;
+    }
+
+    global $DB;
+    $cm = $DB->get_record('course_modules', ['id' => $context->instanceid], 'id,module');
+    if (!$cm) {
+        return;
+    }
+    $modname = $DB->get_field('modules', 'name', ['id' => $cm->module]);
+    if ($modname !== 'quiz') {
+        return;
+    }
+
+    // Check capability at module context.
     if (!has_capability('local/llmgrader:viewconfiguration', $context) &&
         !has_capability('local/llmgrader:configurequiz', $context)) {
         return;
     }
 
-    // Get course module ID for the quiz.
-    global $DB;
-    $cm = $DB->get_record('course_modules', ['instance' => $quiz->id, 'module' => $DB->get_field('modules', 'id', ['name' => 'quiz'])]);
-    if (!$cm) {
-        return;
-    }
-
     $url = new \moodle_url('/local/llmgrader/quiz_config.php', ['cmid' => $cm->id]);
-    $node = \navigation_node::create(
-        get_string('pluginname', 'local_llmgrader'),
-        $url,
-        \navigation_node::TYPE_SETTING,
-        get_string('pluginname', 'local_llmgrader'),
-        'llmgrader_quiz_config',
-        new \pix_icon('i/settings', '')
-    );
-    $navigation->add_node($node);
-}
-
-/**
- * Extend the admin settings navigation.
- *
- * @param navigation_node $navigation The navigation node to extend.
- * @param context_system $context The system context.
- */
-function local_llmgrader_extend_navigation_admin(\navigation_node $navigation, \context_system $context): void {
-    // Check if user has site config capability.
-    if (!has_capability('moodle/site:config', $context)) {
-        return;
+    $modulenode = $settingsnav->get('modulesettings');
+    if ($modulenode) {
+        $modulenode->add(
+            get_string('pluginname', 'local_llmgrader'),
+            $url,
+            \navigation_node::TYPE_SETTING,
+            null,
+            'llmgrader_quiz_config',
+            new \pix_icon('i/settings', '')
+        );
+    } else {
+        $settingsnav->add(
+            get_string('pluginname', 'local_llmgrader'),
+            $url,
+            \navigation_node::TYPE_SETTING,
+            null,
+            'llmgrader_quiz_config',
+            new \pix_icon('i/settings', '')
+        );
     }
-
-    // Check if the localplugins category exists in navigation.
-    $localplugins = $navigation->get('localplugins');
-    if (!$localplugins) {
-        return;
-    }
-
-    // Add LLM Grader category under local plugins.
-    $llmgradercategory = \navigation_node::create(
-        get_string('pluginname', 'local_llmgrader'),
-        null,
-        \navigation_node::TYPE_CATEGORY,
-        get_string('pluginname', 'local_llmgrader'),
-        'llmgrader_admin',
-        new \pix_icon('i/settings', '')
-    );
-
-    // Add global settings link.
-    $settingsurl = new \moodle_url('/admin/settings.php', ['section' => 'local_llmgrader']);
-    $llmgradercategory->add_node(\navigation_node::create(
-        get_string('settings', 'local_llmgrader'),
-        $settingsurl,
-        \navigation_node::TYPE_SETTING,
-        get_string('settings', 'local_llmgrader'),
-        'llmgrader_global_settings',
-        new \pix_icon('i/settings', '')
-    ));
-
-    // Add course configuration link.
-    $courseconfigurl = new \moodle_url('/local/llmgrader/course_config.php', ['id' => 0]);
-    $llmgradercategory->add_node(\navigation_node::create(
-        get_string('configurecourses', 'local_llmgrader'),
-        $courseconfigurl,
-        \navigation_node::TYPE_SETTING,
-        get_string('configurecourses', 'local_llmgrader'),
-        'llmgrader_course_config_admin',
-        new \pix_icon('i/settings', '')
-    ));
-
-    $localplugins->add_node($llmgradercategory);
 }

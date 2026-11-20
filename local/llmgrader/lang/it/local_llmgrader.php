@@ -69,6 +69,20 @@ $string['baseretrydelay_desc'] = 'Delay iniziale per il backoff esponenziale.';
 $string['maxbackoffdelay'] = 'Delay massimo backoff (secondi)';
 $string['maxbackoffdelay_desc'] = 'Delay massimo per il backoff esponenziale (secondi).';
 
+// Help strings (used by addHelpButton).
+$string['enabled_help'] = 'Attiva la valutazione automatica delle domande Essay tramite LLM.';
+$string['apiendpoint_help'] = 'URL dell\'endpoint API compatibile con OpenAI Chat Completions (es. https://api.openai.com/v1/chat/completions).';
+$string['apikey_help'] = 'Chiave di autenticazione per l\'API LLM. Se lasciata vuota, la richiesta verrà inviata senza autenticazione Bearer.';
+$string['model_help'] = 'Nome del modello LLM da utilizzare (es. gpt-4o, claude-3-sonnet).';
+$string['temperature_help'] = 'Valore di temperatura per la generazione (0.0-2.0). Valori più bassi producono risultati più deterministici.';
+$string['maxtokens_help'] = 'Numero massimo di token da generare nella risposta.';
+$string['http_timeout_help'] = 'Timeout per le richieste HTTP al provider LLM.';
+$string['systemprompt_help'] = 'Istruzioni di sistema per il modello LLM. Se lasciato vuoto, verrà utilizzato un prompt predefinito in italiano.';
+$string['feedbacklanguage_help'] = 'Lingua predefinita per il feedback degli studenti (es. it, en).';
+$string['maxretries_help'] = 'Numero massimo di tentativi prima di segnalare un fallimento permanente.';
+$string['baseretrydelay_help'] = 'Delay iniziale per il backoff esponenziale.';
+$string['maxbackoffdelay_help'] = 'Delay massimo per il backoff esponenziale (secondi).';
+
 // Concurrency.
 $string['concurrencyheading'] = 'Impostazioni concorrenza';
 $string['maxconcurrent'] = 'Richieste massime concorrenti';

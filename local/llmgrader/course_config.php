@@ -33,7 +33,6 @@ use local_llmgrader\local\course_config_manager;
 use local_llmgrader\form\course_config_form;
 
 $courseid = required_param('id', PARAM_INT);
-$save = optional_param('save', null, PARAM_RAW);
 $reset = optional_param('resettoinherit', 0, PARAM_INT);
 $page = optional_param('page', 'config', PARAM_ALPHA);
 
@@ -56,10 +55,57 @@ $url = new moodle_url('/local/llmgrader/course_config.php', ['id' => $courseid])
 $PAGE->set_url($url);
 $PAGE->set_context($coursecontext);
 $PAGE->set_title(format_string($course->shortname) . ': ' . get_string('courseconfigheading', 'local_llmgrader'));
-$PAGE->set_heading(format_string($course->full_name));
+$PAGE->set_heading(format_string($course->fullname));
+
+// --- Configuration form handling (must run before any output to allow redirects) ---
+$config = course_config_manager::get($courseid);
+$savewarning = false;
+
+// Reset to inherit (GET link with sesskey).
+if ($reset && confirm_sesskey() && $hasconfigure) {
+    course_config_manager::delete($courseid);
+    redirect($url, get_string('configreset', 'local_llmgrader'), 0);
+}
+
+// Build the form once.
+$mform = new course_config_form($url, ['course' => $course]);
+
+// Handle submission (redirect happens before any output).
+if ($mform->is_submitted()) {
+    if ($hasconfigure) {
+        if ($data = $mform->get_data()) {
+            $configdata = course_config_manager::from_form_data($data);
+            course_config_manager::update($courseid, $configdata);
+            redirect($url, get_string('configsaved', 'local_llmgrader'), 0);
+        }
+    } else {
+        $savewarning = true;
+    }
+}
+
+// Populate the form with existing or effective data.
+if ($config && !$mform->is_submitted()) {
+    $mform->set_data($config);
+} else if (!$hasconfigure && !$mform->is_submitted()) {
+    // Read-only mode: show effective config without editing.
+    $effective = config_provider::get_effective_config(0, $courseid);
+    $mform->set_data($effective);
+
+    // Disable all form elements for read-only view.
+    $elements = $mform->getElements();
+    foreach ($elements as $element) {
+        if (method_exists($element, 'freeze')) {
+            $element->freeze();
+        }
+    }
+}
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('courseconfigheading', 'local_llmgrader'));
+
+if ($savewarning) {
+    echo $OUTPUT->notification(get_string('nopermissions', 'local_llmgrader'), 'warning');
+}
 
 // Navigation tabs.
 echo '<div class="tabtree"><ul class="nav nav-tabs">';
@@ -134,50 +180,27 @@ if ($page === 'logs') {
     exit;
 }
 
-// --- Configuration form handling ---
-$config = course_config_manager::get($courseid);
-$formdata = null;
-
-if ($save && confirm_sesskey()) {
-    if ($hasconfigure) {
-        $mform = new course_config_form($url, ['course' => $course]);
-        if ($data = $mform->get_data()) {
-            $configdata = course_config_manager::from_form_data($data);
-            course_config_manager::update($courseid, $configdata);
-            redirect($url, get_string('configsaved', 'local_llmgrader'), 0);
-        }
-    } else {
-        // No permission to save.
-        echo '<div class="alert alert-warning">' . get_string('nopermissions', 'local_llmgrader') . '</div>';
-    }
-}
-
-if ($reset && confirm_sesskey() && $hasconfigure) {
-    course_config_manager::delete($courseid);
-    redirect($url, get_string('configreset', 'local_llmgrader'), 0);
-}
-
-// Display the form.
-$mform = new course_config_form($url, ['course' => $course]);
-if ($config && !$save) {
-    $mform->set_data($config);
-} else if (!$hasconfigure) {
-    // Read-only mode: show effective config without editing.
-    $effective = config_provider::get_effective_config(0, $courseid);
-    $mform->set_data($effective);
-
-    // Disable all form elements for read-only view.
-    $elements = $mform->getElements();
-    foreach ($elements as $element) {
-        if (method_exists($element, 'freeze')) {
-            $element->freeze();
-        }
-    }
-}
-
+// --- Configuration form display ---
 echo $OUTPUT->box_start('config-form-box');
 $mform->display();
 echo $OUTPUT->box_end();
+
+// Reset-to-inherit link (only when an explicit course config exists).
+if ($hasconfigure && $config) {
+    $reseturl = new moodle_url('/local/llmgrader/course_config.php', [
+        'id' => $courseid,
+        'resettoinherit' => 1,
+        'sesskey' => sesskey(),
+    ]);
+    echo \html_writer::div(
+        \html_writer::link(
+            $reseturl,
+            get_string('resettoinherit', 'local_llmgrader'),
+            ['class' => 'btn btn-outline-secondary btn-sm']
+        ),
+        'mt-2 mb-3'
+    );
+}
 
 // Show inheritance info.
 if ($hasview) {

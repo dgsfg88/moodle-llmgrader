@@ -82,7 +82,6 @@ class quiz_config_form extends \moodleform {
         $mform->setType('llmgrader_temperature', PARAM_FLOAT);
         $mform->addHelpButton('llmgrader_temperature', 'temperature', 'local_llmgrader');
         $mform->setDefault('llmgrader_temperature', '0.2');
-        $mform->addRule('llmgrader_temperature', get_string('error_temperature_range', 'local_llmgrader'), 'numeric', null, 'client');
 
         $mform->addElement('text', 'llmgrader_max_tokens', get_string('maxtokens', 'local_llmgrader'), ['size' => 10]);
         $mform->setType('llmgrader_max_tokens', PARAM_INT);
@@ -104,7 +103,7 @@ class quiz_config_form extends \moodleform {
                 'changeformat' => false,
                 'context' => $this->course ? \context_course::instance($this->course->id) : \context_system::instance(),
             ]);
-        $mform->setType('llmgrader_system_prompt', PARAM_RAW);
+        $mform->setType('llmgrader_system_prompt_editor[text]', PARAM_RAW);
         $mform->addHelpButton('llmgrader_system_prompt_editor', 'systemprompt', 'local_llmgrader');
 
         $mform->addElement('text', 'llmgrader_feedback_language', get_string('feedbacklanguage', 'local_llmgrader'), ['size' => 5]);
@@ -137,10 +136,6 @@ class quiz_config_form extends \moodleform {
 
         // Buttons.
         $this->add_action_buttons(true, get_string('saveconfig', 'local_llmgrader'));
-
-        $submitbtn = $mform->createElement('submit', 'resettoinherit', get_string('resettoinherit', 'local_llmgrader'));
-        $submitbtn->setAttributes(['class' => 'btn-secondary']);
-        $mform->addElement('container', $submitbtn);
     }
 
     /**
@@ -182,8 +177,10 @@ class quiz_config_form extends \moodleform {
             $data->llmgrader_temperature = $config->temperature ?? '0.2';
             $data->llmgrader_max_tokens = $config->max_tokens ?? '';
             $data->llmgrader_http_timeout = $config->http_timeout ?? '';
-            $data->llmgrader_system_prompt = $config->system_prompt ?? '';
-            $data->llmgrader_system_prompt_format = FORMAT_HTML;
+            $data->llmgrader_system_prompt_editor = [
+                'text' => $config->system_prompt ?? '',
+                'format' => FORMAT_HTML,
+            ];
             $data->llmgrader_feedback_language = $config->feedback_language ?? 'it';
             $data->llmgrader_retry_enabled = (bool)$config->retry_enabled;
             $data->llmgrader_max_retries = $config->max_retries ?? '';

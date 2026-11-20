@@ -169,7 +169,14 @@ class quiz_config_manager {
         $data->temperature = !empty($formdata->llmgrader_temperature) ? floatval($formdata->llmgrader_temperature) : null;
         $data->max_tokens = !empty($formdata->llmgrader_max_tokens) ? intval($formdata->llmgrader_max_tokens) : null;
         $data->http_timeout = !empty($formdata->llmgrader_http_timeout) ? intval($formdata->llmgrader_http_timeout) : null;
-        $data->system_prompt = !empty($formdata->llmgrader_system_prompt) ? trim($formdata->llmgrader_system_prompt) : null;
+        $data->system_prompt = null;
+        $promptvalue = $formdata->llmgrader_system_prompt_editor ?? $formdata->llmgrader_system_prompt ?? '';
+        if (is_array($promptvalue)) {
+            $promptvalue = $promptvalue['text'] ?? '';
+        }
+        if ($promptvalue !== null && trim((string)$promptvalue) !== '') {
+            $data->system_prompt = trim((string)$promptvalue);
+        }
         $data->feedback_language = !empty($formdata->llmgrader_feedback_language) ? trim($formdata->llmgrader_feedback_language) : null;
         $data->retry_enabled = !empty($formdata->llmgrader_retry_enabled) ? 1 : 0;
         $data->max_retries = !empty($formdata->llmgrader_max_retries) ? intval($formdata->llmgrader_max_retries) : null;
