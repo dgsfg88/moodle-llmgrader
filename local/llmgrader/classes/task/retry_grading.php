@@ -48,9 +48,10 @@ class retry_grading extends adhoc_task {
      * @param int $questionversion Question version
      * @param int $quizid Quiz ID (for config resolution)
      * @param int $courseid Course ID (for config resolution)
+     * @param bool $force Whether to overwrite an existing teacher/LLM grade.
      * @return self
      */
-    public static function instance(int $logid, int $attemptid, int $slot, int $questionid, int $questionversion, int $quizid = 0, int $courseid = 0): self {
+    public static function instance(int $logid, int $attemptid, int $slot, int $questionid, int $questionversion, int $quizid = 0, int $courseid = 0, bool $force = false): self {
         $task = new self();
         $task->set_custom_data((object)[
             'logid'           => $logid,
@@ -60,6 +61,7 @@ class retry_grading extends adhoc_task {
             'questionversion' => $questionversion,
             'quizid'          => $quizid,
             'courseid'        => $courseid,
+            'force'           => $force,
         ]);
         return $task;
     }
@@ -137,9 +139,10 @@ class retry_grading extends adhoc_task {
             return;
         }
 
-        // Never overwrite a teacher grade.
+        // Never overwrite a teacher grade, unless this is a forced manual retry.
+        $force = !empty($data->force);
         $qa = $quba->get_question_attempt($data->slot);
-        if ($qa->get_state()->is_graded()) {
+        if ($qa->get_state()->is_graded() && !$force) {
             $DB->set_field('local_llmgrader_log', 'status', 'completed', ['id' => $log->id]);
             mtrace("Slot {$data->slot} is already graded. Marking retry as completed.");
             return;

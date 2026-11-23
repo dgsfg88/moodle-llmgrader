@@ -167,10 +167,9 @@ function xmldb_local_llmgrader_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026112100, 'local', 'llmgrader');
     }
 
-    // Version 1.3.1: retry on invalid JSON, unescaped-quote repair, optional
-    // JSON mode (no schema changes).
-    if ($oldversion < 2026112301) {
-        upgrade_plugin_savepoint(true, 2026112301, 'local', 'llmgrader');
+    // Version 1.3.2: manual re-grading page (no schema changes).
+    if ($oldversion < 2026112302) {
+        upgrade_plugin_savepoint(true, 2026112302, 'local', 'llmgrader');
     }
 
     return true;

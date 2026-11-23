@@ -134,4 +134,18 @@ function local_llmgrader_extend_settings_navigation(\navigation_node $settingsna
             new \pix_icon('i/settings', '')
         );
     }
+
+    // Manual re-grading entry point (teachers).
+    if (has_capability('local/llmgrader:manualregrade', $context)) {
+        $retryurl = new \moodle_url('/local/llmgrader/retry.php', ['cmid' => $cm->id]);
+        $target = $modulenode ?: $settingsnav;
+        $target->add(
+            get_string('manualregrade', 'local_llmgrader'),
+            $retryurl,
+            \navigation_node::TYPE_SETTING,
+            null,
+            'llmgrader_retry',
+            new \pix_icon('i/refresh', '')
+        );
+    }
 }
