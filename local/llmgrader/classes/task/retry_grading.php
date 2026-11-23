@@ -25,10 +25,10 @@
 namespace local_llmgrader\task;
 
 use core\task\adhoc_task;
-use exception;
 use local_llmgrader\local\config_provider;
 use local_llmgrader\local\essay_grader;
 use local_llmgrader\local\retry_manager;
+use mod_quiz\quiz_attempt;
 use moodle_exception;
 
 defined('MOODLE_INTERNAL') || die();
@@ -71,7 +71,10 @@ class retry_grading extends adhoc_task {
      * @throws moodle_exception
      */
     public function execute(): void {
-        global $DB;
+        global $CFG, $DB;
+
+        // The question engine classes are not autoloaded in Moodle 5.0.
+        require_once($CFG->dirroot . '/question/engine/lib.php');
 
         $data = $this->get_custom_data();
 
@@ -87,16 +90,24 @@ class retry_grading extends adhoc_task {
         $quizid = isset($data->quizid) ? (int)$data->quizid : 0;
         $courseid = isset($data->courseid) ? (int)$data->courseid : 0;
 
-        // If quizid not in custom data, try to get it from the attempt.
-        if ($quizid === 0 && isset($data->attemptid)) {
-            $attempt = $DB->get_record('quiz_attempts', ['id' => $data->attemptid], 'quiz', IGNORE_MISSING);
-            if ($attempt) {
-                $quizid = (int)$attempt->quiz;
-                $course = $DB->get_record('quiz', ['id' => $quizid], 'course', IGNORE_MISSING);
-                if ($course) {
-                    $courseid = (int)$course->course;
-                }
+        // Load the attempt: it gives us both the quiz id and the QUBA id.
+        $attempt = $DB->get_record('quiz_attempts', ['id' => $data->attemptid], '*', IGNORE_MISSING);
+        if (!$attempt) {
+            mtrace("Attempt {$data->attemptid} not found. Skipping retry.");
+            return;
+        }
+
+        if ($quizid === 0) {
+            $quizid = (int)$attempt->quiz;
+            $quiz = $DB->get_record('quiz', ['id' => $quizid], 'course', IGNORE_MISSING);
+            if ($quiz) {
+                $courseid = (int)$quiz->course;
             }
+        }
+
+        if ($attempt->state !== quiz_attempt::FINISHED) {
+            mtrace("Attempt {$data->attemptid} is not finished (state: {$attempt->state}). Skipping retry.");
+            return;
         }
 
         // Resolve the effective configuration for this quiz/course context.
@@ -104,16 +115,17 @@ class retry_grading extends adhoc_task {
 
         // Check max retries using config-specific setting.
         $maxretries = (int)($config->max_retries ?? 8);
-        if ($log->retrycount >= $maxretries) {
+        $retrycount = (int)$log->retrycount;
+        if ($retrycount >= $maxretries) {
             $DB->set_field('local_llmgrader_log', 'status', 'failed', ['id' => $log->id]);
             mtrace("Log {$data->logid} exceeded max retries ({$maxretries}). Marking as failed.");
             return;
         }
 
-        // Load the question usage.
+        // Load the question usage. quiz_attempts.uniqueid is the QUBA id.
         try {
-            $quba = \question_engine::load_questions_usage_by_activity($data->attemptid);
-        } catch (exception $e) {
+            $quba = \question_engine::load_questions_usage_by_activity((int)$attempt->uniqueid);
+        } catch (\Throwable $e) {
             mtrace("Failed to load question usage for retry: " . $e->getMessage());
             return;
         }
@@ -125,27 +137,44 @@ class retry_grading extends adhoc_task {
             return;
         }
 
+        // Never overwrite a teacher grade.
+        $qa = $quba->get_question_attempt($data->slot);
+        if ($qa->get_state()->is_graded()) {
+            $DB->set_field('local_llmgrader_log', 'status', 'completed', ['id' => $log->id]);
+            mtrace("Slot {$data->slot} is already graded. Marking retry as completed.");
+            return;
+        }
+
         // Grade the essay with contextual config.
         try {
             $essaygrader = new essay_grader($config);
             $result = $essaygrader->grade($question, $quba, $data->slot, $data->attemptid, $quizid, $courseid);
 
-            if ($result) {
-                $DB->set_field('local_llmgrader_log', 'status', 'completed', ['id' => $log->id]);
-                $DB->set_field('local_llmgrader_log', 'score', $result['score'], ['id' => $log->id]);
-                $DB->set_field('local_llmgrader_log', 'maxscore', $result['maxscore'], ['id' => $log->id]);
-                $DB->set_field('local_llmgrader_log', 'feedback', $result['feedback'] ?? '', ['id' => $log->id]);
-                $DB->set_field('local_llmgrader_log', 'model', $result['model'] ?? '', ['id' => $log->id]);
-                $DB->set_field('local_llmgrader_log', 'timecompleted', time(), ['id' => $log->id]);
-                mtrace("Retry successful for log {$data->logid}: {$result['score']}/{$result['maxscore']}");
-            }
-        } catch (exception $e) {
+            $DB->update_record('local_llmgrader_log', (object)[
+                'id' => $log->id,
+                'status' => 'completed',
+                'score' => $result['score'],
+                'maxscore' => $result['maxscore'],
+                'feedback' => $result['feedback'] ?? '',
+                'model' => $result['model'] ?? '',
+                'lasthttpcode' => $essaygrader->get_last_http_code(),
+                'timecompleted' => time(),
+                'timemodified' => time(),
+            ]);
+            mtrace("Retry successful for log {$data->logid}: {$result['score']}/{$result['maxscore']}");
+        } catch (\Throwable $e) {
             $retrymanager = new retry_manager($config);
-            if ($retrymanager->is_retryable($e) && $log->retrycount + 1 < $maxretries) {
-                $delay = $retrymanager->get_delay($log->retrycount);
-                $DB->set_field('local_llmgrader_log', 'nextretry', time() + $delay, ['id' => $log->id]);
-                $DB->set_field('local_llmgrader_log', 'retrycount', $log->retrycount + 1, ['id' => $log->id]);
-                $DB->set_field('local_llmgrader_log', 'lastretryreason', substr($e->getMessage(), 0, 500), ['id' => $log->id]);
+            if ($retrymanager->is_retryable($e) && $retrycount + 1 < $maxretries) {
+                $delay = $retrymanager->get_delay($retrycount);
+                $DB->update_record('local_llmgrader_log', (object)[
+                    'id' => $log->id,
+                    'status' => 'retry_scheduled',
+                    'nextretry' => time() + $delay,
+                    'retrycount' => $retrycount + 1,
+                    'lastretryreason' => substr($e->getMessage(), 0, 500),
+                    'lasthttpcode' => $essaygrader->get_last_http_code(),
+                    'timemodified' => time(),
+                ]);
 
                 $retrytask = self::instance(
                     $log->id,
@@ -156,13 +185,18 @@ class retry_grading extends adhoc_task {
                     $quizid,
                     $courseid
                 );
-                \core\task\manager::queue_adhoc_task($retrytask);
-                $retrynum = $log->retrycount + 1;
+                \core\task\manager::queue_adhoc_task($retrytask, time() + $delay);
+                $retrynum = $retrycount + 1;
                 mtrace("Retry {$retrynum} failed for log {$data->logid}, will retry in {$delay}s.");
             } else {
-                $DB->set_field('local_llmgrader_log', 'status', 'failed', ['id' => $log->id]);
-                $DB->set_field('local_llmgrader_log', 'error', substr($e->getMessage(), 0, 1000), ['id' => $log->id]);
-                $retrynum = $log->retrycount + 1;
+                $DB->update_record('local_llmgrader_log', (object)[
+                    'id' => $log->id,
+                    'status' => 'failed',
+                    'error' => substr($e->getMessage(), 0, 1000),
+                    'lasthttpcode' => $essaygrader->get_last_http_code(),
+                    'timemodified' => time(),
+                ]);
+                $retrynum = $retrycount + 1;
                 mtrace("Retry {$retrynum} failed permanently for log {$data->logid}: " . $e->getMessage());
             }
         }

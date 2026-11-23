@@ -1,0 +1,7 @@
+﻿# Harness session data
+.opencode/
+# Old build artifacts
+build/
+# OS noise
+.DS_Store
+Thumbs.db

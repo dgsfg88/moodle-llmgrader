@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Connection test page for LLM Grader plugin.
@@ -22,8 +22,9 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once('../../../config.php');
+require_once(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/local/llmgrader/lib.php');
+require_once($CFG->libdir . '/tablelib.php');
 
 // Check capabilities.
 require_login();
@@ -44,51 +45,25 @@ echo $OUTPUT->header();
 if (is_post_request()) {
     // Perform a connection test using synthetic content.
     try {
-        $endpoint = get_config('local_llmgrader', 'api_endpoint');
-        if (empty($endpoint)) {
-            throw new moodle_exception('noapiendpoint', 'local_llmgrader');
-        }
+        $client = new \local_llmgrader\local\llm_client();
+        $reply = $client->test_connection();
 
-        $apikey = get_config('local_llmgrader', 'api_key') ?: null;
-        $model = get_config('local_llmgrader', 'model') ?: 'gpt-4o';
-
-        $payload = [
-            'model' => $model,
-            'messages' => [
-                ['role' => 'user', 'content' => 'Reply with exactly: CONNECTION_TEST_OK']
-            ],
-            'max_tokens' => 20,
-            'temperature' => 0,
-        ];
-
-        $headers = ['Content-Type: application/json'];
-        if ($apikey) {
-            $headers[] = 'Authorization: Bearer ' . $apikey;
-        }
-
-        $http = new \core\http\Client();
-        $response = $http->post(
-            $endpoint,
-            json_encode($payload, JSON_UNESCAPED_UNICODE),
-            [
-                'headers' => $headers,
-                'options' => [\core\http\Client::OPTION_TIMEOUT => 30],
-            ]
-        );
-
-        if ($response->get_status_code() === 200) {
-            $body = json_decode($response->get_body(), true);
-            $reply = $body['choices'][0]['message']['content'] ?? '';
-            if (strpos($reply, 'CONNECTION_TEST_OK') !== false) {
-                echo $OUTPUT->notification(get_string('connectiontestsuccess', 'local_llmgrader', $model), 'success');
-            } else {
-                echo $OUTPUT->notification(get_string('connectiontestfailed', 'local_llmgrader', get_string('invalidllmresponse', 'local_llmgrader')), 'warning');
-            }
+        if (stripos($reply, 'CONNECTION_TEST_OK') !== false) {
+            echo $OUTPUT->notification(
+                get_string('connectiontestsuccess', 'local_llmgrader', s($client->get_model() ?? '')),
+                'success'
+            );
         } else {
-            echo $OUTPUT->notification(get_string('connectiontestfailed', 'local_llmgrader', 'HTTP ' . $response->get_status_code()), 'danger');
+            echo $OUTPUT->notification(
+                get_string('connectiontestfailed', 'local_llmgrader', s($reply)),
+                'warning'
+            );
         }
-    } catch (moodle_exception $e) {
-        echo $OUTPUT->notification(get_string('connectiontestfailed', 'local_llmgrader', $e->getMessage()), 'danger');
+    } catch (\Throwable $e) {
+        echo $OUTPUT->notification(
+            get_string('connectiontestfailed', 'local_llmgrader', s($e->getMessage())),
+            'danger'
+        );
     }
 }
 
@@ -116,7 +91,7 @@ if ($recent) {
             userdate($log->timecreated),
         ];
     }
-    echo html_table::make($table);
+    echo html_writer::table($table);
 } else {
     echo '<p>' . get_string('nogradesfound', 'local_llmgrader') . '</p>';
 }

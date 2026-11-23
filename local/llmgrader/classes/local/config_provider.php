@@ -115,9 +115,10 @@ class config_provider {
      *
      * @return object Global configuration with defaults for missing values.
      */
-    protected static function get_global_config(): object {
+    public static function get_global_config(): object {
         return (object)[
             'enabled' => (bool)get_config('local_llmgrader', 'enabled'),
+            'allow_local_endpoints' => (bool)get_config('local_llmgrader', 'allow_local_endpoints'),
             'api_endpoint' => get_config('local_llmgrader', 'api_endpoint') ?: '',
             'api_key' => get_config('local_llmgrader', 'api_key') ?: null,
             'model' => get_config('local_llmgrader', 'model') ?: 'gpt-4o',
@@ -206,8 +207,9 @@ class config_provider {
             if (isset($override->$field)) {
                 $value = $override->$field;
 
-                // For numeric fields, null means "inherit", but explicit 0/1 for boolean fields counts.
-                if ($value === null && $field !== 'enabled' && $field !== 'retry_enabled') {
+                // A null value always means "inherit from the lower level".
+                // To disable at this level store an explicit 0 instead.
+                if ($value === null) {
                     continue;
                 }
 
@@ -279,6 +281,9 @@ class config_provider {
         }
         if (!isset($config->max_backoff_delay) || $config->max_backoff_delay === null) {
             $config->max_backoff_delay = 900;
+        }
+        if (!isset($config->allow_local_endpoints)) {
+            $config->allow_local_endpoints = false;
         }
 
         return $config;

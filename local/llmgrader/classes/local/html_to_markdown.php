@@ -54,9 +54,15 @@ class html_to_markdown {
         $html = $this->clean_html($html);
 
         // Parse with DOMDocument.
+        // DOMDocument::loadHTML() assumes ISO-8859-1 when no encoding is
+        // declared, which double-encodes every non-ASCII character. The XML
+        // encoding declaration forces UTF-8 interpretation.
         $this->dom = new \DOMDocument('1.0', 'UTF-8');
         libxml_use_internal_errors(true);
-        $this->dom->loadHTML('<div>' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $this->dom->loadHTML(
+            '<?xml encoding="UTF-8"><div>' . $html . '</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
         libxml_clear_errors();
 
         $this->markdown = '';
@@ -91,10 +97,28 @@ class html_to_markdown {
         // Remove hidden elements.
         $html = preg_replace('/<([^>]+)(?:class|style)\s*=[^>]*display\s*:\s*none[^>]*>(.*?)<\/\1>/si', '', $html);
 
-        // Normalize whitespace in tags.
-        $html = preg_replace('/\s+/', ' ', $html);
-
+        // Do not collapse whitespace globally: it would destroy the content of
+        // <pre> and <code> blocks. Whitespace is normalised per text node.
         return $html;
+    }
+
+    /**
+     * Append a text node to the Markdown output.
+     *
+     * @param string $text
+     */
+    protected function append_text(string $text): void {
+        if ($text === '') {
+            return;
+        }
+
+        // Collapse runs of whitespace, but keep a single separating space.
+        $text = preg_replace('/[ \t\r\n]+/u', ' ', $text);
+        if ($text === null) {
+            // Invalid UTF-8: recover instead of dropping the text.
+            $text = mb_convert_encoding($text, 'UTF-8', 'Windows-1252');
+        }
+        $this->markdown .= $text;
     }
 
     /**
@@ -320,47 +344,91 @@ class html_to_markdown {
     protected function process_table(\DOMElement $element): void {
         $this->append("\n");
         $rows = [];
-        $headers = [];
 
-        // Extract rows.
+        // Extract rows, supporting both direct <tr> children and the usual
+        // <thead>/<tbody>/<tfoot> wrappers.
         foreach ($element->childNodes as $child) {
-            if ($child->nodeType === XML_ELEMENT_NODE && in_array(strtolower($child->tagName), ['thead', 'tbody', 'tfoot'])) {
-                foreach ($child->childNodes as $row) {
-                    if ($row->nodeType === XML_ELEMENT_NODE && strtolower($row->tagName) === 'tr') {
-                        $cells = [];
-                        $isheader = false;
-                        foreach ($row->childNodes as $cell) {
-                            if ($cell->nodeType === XML_ELEMENT_NODE) {
-                                $tag = strtolower($cell->tagName);
-                                if ($tag === 'th') {
-                                    $isheader = true;
-                                }
-                                $cells[] = trim($this->get_text_content($cell));
-                            }
-                        }
-                        if ($cells) {
-                            $rows[] = ['cells' => $cells, 'isheader' => $isheader];
-                        }
-                    }
-                }
+            if ($child->nodeType !== XML_ELEMENT_NODE) {
+                continue;
+            }
+            $tag = strtolower($child->tagName);
+            if (in_array($tag, ['thead', 'tbody', 'tfoot'], true)) {
+                $this->collect_table_rows($child, $rows);
+            } else if ($tag === 'tr') {
+                $this->collect_table_row($child, $rows);
             }
         }
 
-        // Build Markdown table.
-        foreach ($rows as $rowindex => $row) {
-            $pipes = '|' . implode('|', $row['cells']) . '|';
-            $this->append($pipes . "\n");
+        // Build the Markdown table, inserting the separator row exactly once.
+        $separatorwritten = false;
+        $first = true;
+        foreach ($rows as $row) {
+            $cells = array_map([$this, 'escape_table_cell'], $row['cells']);
+            $this->append('|' . implode('|', $cells) . "|\n");
 
-            if ($row['isheader'] || $rowindex === 0) {
-                $separator = [];
-                foreach ($row['cells'] as $cell) {
-                    $separator[] = '---';
-                }
+            if (!$separatorwritten && ($row['isheader'] || $first)) {
+                $separator = array_fill(0, count($row['cells']), '---');
                 $this->append('|' . implode('|', $separator) . "|\n");
+                $separatorwritten = true;
             }
+            $first = false;
         }
 
         $this->append("\n");
+    }
+
+    /**
+     * Collect table rows from a thead/tbody/tfoot container.
+     *
+     * @param \DOMElement $container
+     * @param array $rows
+     */
+    protected function collect_table_rows(\DOMElement $container, array &$rows): void {
+        foreach ($container->childNodes as $row) {
+            if ($row->nodeType === XML_ELEMENT_NODE && strtolower($row->tagName) === 'tr') {
+                $this->collect_table_row($row, $rows);
+            }
+        }
+    }
+
+    /**
+     * Collect a single table row.
+     *
+     * @param \DOMElement $row
+     * @param array $rows
+     */
+    protected function collect_table_row(\DOMElement $row, array &$rows): void {
+        $cells = [];
+        $isheader = false;
+
+        foreach ($row->childNodes as $cell) {
+            if ($cell->nodeType !== XML_ELEMENT_NODE) {
+                continue;
+            }
+            $tag = strtolower($cell->tagName);
+            if (!in_array($tag, ['td', 'th'], true)) {
+                continue;
+            }
+            if ($tag === 'th') {
+                $isheader = true;
+            }
+            $text = trim(preg_replace('/\s+/u', ' ', $this->get_text_content($cell)));
+            $cells[] = $text;
+        }
+
+        if ($cells) {
+            $rows[] = ['cells' => $cells, 'isheader' => $isheader];
+        }
+    }
+
+    /**
+     * Escape pipe characters inside a Markdown table cell.
+     *
+     * @param string $cell
+     * @return string
+     */
+    protected function escape_table_cell(string $cell): string {
+        return str_replace('|', '\\|', $cell);
     }
 
     /**

@@ -74,7 +74,7 @@ if ($hassiteconfig) {
         'local_llmgrader/max_tokens',
         new lang_string('maxtokens', 'local_llmgrader'),
         new lang_string('maxtokens_desc', 'local_llmgrader'),
-        '2048',
+        '4096',
         PARAM_INT
     ));
 
@@ -82,8 +82,16 @@ if ($hassiteconfig) {
         'local_llmgrader/http_timeout',
         new lang_string('http_timeout', 'local_llmgrader'),
         new lang_string('http_timeout_desc', 'local_llmgrader'),
-        '120',
+        '300',
         PARAM_INT
+    ));
+
+    // Security: Moodle blocks localhost/private network requests by default.
+    $settings->add(new admin_setting_configcheckbox(
+        'local_llmgrader/allow_local_endpoints',
+        new lang_string('allowlocalendpoints', 'local_llmgrader'),
+        new lang_string('allowlocalendpoints_desc', 'local_llmgrader'),
+        0
     ));
 
     // Prompt settings.
@@ -138,11 +146,12 @@ if ($hassiteconfig) {
     ));
 
     // Connection test page.
+    $testurl = new moodle_url('/local/llmgrader/test.php');
     $settings->add(new admin_setting_description(
         'local_llmgrader/testconnectionheading',
         '',
         '<div style="margin-top: 15px;">' .
-        '<form action="' . new moodle_url('/local/llmgrader/test.php') . '" method="post">' .
+        '<form action="' . $testurl->out() . '" method="post">' .
         '<input type="hidden" name="sesskey" value="' . sesskey() . '">' .
         '<input type="submit" class="btn btn-primary" value="' .
         get_string('testconnectionbutton', 'local_llmgrader') . '">' .
@@ -156,18 +165,7 @@ if ($hassiteconfig) {
         new lang_string('multilevel_desc', 'local_llmgrader')
     ));
 
-    // Link to course configuration page (managers can configure at course level).
-    $courseconfigurl = new moodle_url('/local/llmgrader/course_config.php', ['id' => 0]);
-    $settings->add(new admin_setting_description(
-        'local_llmgrader/courseconfiglink',
-        '',
-        '<div style="margin-top: 10px;">' .
-        '<a href="' . $courseconfigurl->out() . '" class="btn btn-secondary">' .
-        get_string('configurecourses', 'local_llmgrader') . '</a>' .
-        '</div>'
-    ));
-
-    // Note about quiz configuration.
+    // Note about course and quiz configuration.
     $settings->add(new admin_setting_description(
         'local_llmgrader/quizconfignote',
         '',

@@ -134,4 +134,51 @@ class content_converter_test extends \advanced_testcase {
         $this->assertStringContainsString('<pre>', $result);
         $this->assertStringContainsString('code', strtolower($result));
     }
+
+    /**
+     * Test that UTF-8 is preserved in both directions.
+     */
+    public function test_utf8_preserved(): void {
+        $converter = new content_converter();
+
+        $markdown = $converter->html_to_markdown(
+            '<p>Questa è una domanda: € 5, “virgolette”, àèéìòù.</p>',
+            FORMAT_HTML
+        );
+        $this->assertStringContainsString('Questa è una domanda', $markdown);
+        $this->assertStringContainsString('€', $markdown);
+        $this->assertStringNotContainsString('Ã¨', $markdown);
+
+        $html = $converter->markdown_to_html_safe('**Ciao** è à');
+        $this->assertStringContainsString('è', $html);
+        $this->assertStringNotContainsString('Ã¨', $html);
+    }
+
+    /**
+     * Test that a list right after a paragraph is rendered as a list.
+     */
+    public function test_list_after_paragraph(): void {
+        $converter = new content_converter();
+        $md = "**Punti di Forza:**\n*   Ottima organizzazione\n*   Chiarezza elevata";
+
+        $result = $converter->markdown_to_html_safe($md);
+
+        $this->assertStringContainsString('<ul>', $result);
+        $this->assertStringContainsString('<li>', $result);
+        $this->assertStringNotContainsString('*   Ottima', $result);
+    }
+
+    /**
+     * Test that fenced code blocks are not altered by list normalisation.
+     */
+    public function test_code_fence_not_normalised(): void {
+        $converter = new content_converter();
+        $md = "Testo:\n```\n* non è una lista\n```";
+
+        $result = $converter->markdown_to_html_safe($md);
+
+        $this->assertStringContainsString('<pre>', $result);
+        $this->assertStringNotContainsString('<li>', $result);
+        $this->assertStringContainsString('* non è una lista', $result);
+    }
 }

@@ -157,4 +157,63 @@ class response_parser_test extends \advanced_testcase {
 
         $parser->parse_and_validate($raw, 10.0);
     }
+
+    /**
+     * Test weighted per-criterion grading.
+     */
+    public function test_weighted_criteria(): void {
+        $parser = new response_parser();
+        $raw = json_encode([
+            'criteria' => [
+                ['criterion' => 'Completezza', 'score' => 4, 'max_score' => 5, 'weight' => 30, 'comment' => 'Buona, è chiara.'],
+                ['criterion' => 'Accuratezza', 'score' => 3, 'max_score' => 5, 'weight' => 25, 'comment' => 'Sufficiente.'],
+                ['criterion' => 'Chiarezza', 'score' => 4, 'max_score' => 5, 'weight' => 10, 'comment' => 'Chiara.'],
+            ],
+            'overall_comment' => 'Prova complessivamente buona.',
+        ], JSON_UNESCAPED_UNICODE);
+
+        $result = $parser->parse_and_validate($raw, 10.0, 'it');
+
+        // (4/5*30 + 3/5*25 + 4/5*10) / 65 * 10 = 7.2307...
+        $this->assertEqualsWithDelta(7.23, $result['score'], 0.001);
+        $this->assertCount(3, $result['criteria']);
+        $this->assertStringContainsString('| Criterio |', $result['comment']);
+        $this->assertStringContainsString('è', $result['comment']);
+    }
+
+    /**
+     * Test recovery from a JSON response truncated by max_tokens.
+     */
+    public function test_truncated_json_recovered(): void {
+        $parser = new response_parser();
+        $full = json_encode([
+            'criteria' => [
+                ['criterion' => 'A', 'score' => 4, 'max_score' => 5, 'weight' => 50, 'comment' => 'Completo.'],
+                ['criterion' => 'B', 'score' => 2, 'max_score' => 5, 'weight' => 50, 'comment' => 'Troncato'],
+            ],
+            'overall_comment' => 'Commento.',
+        ], JSON_UNESCAPED_UNICODE);
+        $cut = substr($full, 0, strpos($full, 'Troncato') + 3);
+
+        $result = $parser->parse_and_validate($cut, 10.0, 'it');
+
+        $this->assertEqualsWithDelta(8.0, $result['score'], 0.001);
+        $this->assertStringContainsString('troncata', $result['comment']);
+    }
+
+    /**
+     * Test a criterion without max_score is rejected.
+     */
+    public function test_criterion_without_max_score_rejected(): void {
+        $this->expectException(\moodle_exception::class);
+
+        $parser = new response_parser();
+        $raw = json_encode([
+            'criteria' => [
+                ['criterion' => 'X', 'score' => 3, 'weight' => 1, 'comment' => 'Test'],
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+
+        $parser->parse_and_validate($raw, 10.0, 'it');
+    }
 }

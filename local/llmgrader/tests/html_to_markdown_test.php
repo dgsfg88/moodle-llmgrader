@@ -212,4 +212,32 @@ class html_to_markdown_test extends \advanced_testcase {
         // The javascript: URL should not appear as a link.
         $this->assertStringNotContainsString('javascript:', $result);
     }
+
+    /**
+     * Test that UTF-8 content is not double-encoded by DOMDocument.
+     */
+    public function test_utf8_not_double_encoded(): void {
+        $converter = new html_to_markdown();
+        $html = '<p>è à é ì ò ù € “virgolette”</p>';
+
+        $result = $converter->convert($html);
+
+        $this->assertStringContainsString('è à é ì ò ù', $result);
+        $this->assertStringContainsString('€', $result);
+        $this->assertStringNotContainsString('Ã¨', $result);
+        $this->assertStringNotContainsString('â‚¬', $result);
+    }
+
+    /**
+     * Test UTF-8 inside table cells.
+     */
+    public function test_utf8_in_table(): void {
+        $converter = new html_to_markdown();
+        $html = '<table><thead><tr><th>Città</th></tr></thead><tbody><tr><td>Forlì</td></tr></tbody></table>';
+
+        $result = $converter->convert($html);
+
+        $this->assertStringContainsString('Città', $result);
+        $this->assertStringContainsString('Forlì', $result);
+    }
 }

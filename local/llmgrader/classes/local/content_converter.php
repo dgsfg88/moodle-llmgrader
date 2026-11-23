@@ -53,6 +53,12 @@ class content_converter {
      * @return string Markdown text.
      */
     public function html_to_markdown(string $html, int $format = FORMAT_HTML): string {
+        // Moodle content is expected to be UTF-8. Recover gracefully if a
+        // legacy value is not, instead of producing invalid JSON later.
+        if ($html !== '' && !mb_check_encoding($html, 'UTF-8')) {
+            $html = mb_convert_encoding($html, 'UTF-8', 'Windows-1252');
+        }
+
         // If the content is plain text or markdown, return as-is.
         if ($format === FORMAT_PLAIN || $format === FORMAT_MARKDOWN) {
             return $html;
@@ -79,14 +85,73 @@ class content_converter {
             return '';
         }
 
+        $markdown = $this->normalise_markdown($markdown);
+
         // Convert Markdown to HTML using Moodle's bundled Michelf library.
-        $html = \Michelf\MarkdownExtra::defaultTransform($markdown);
+        // Raw HTML coming from the model is disabled: it must be treated as
+        // text, never passed through as markup.
+        $parser = new \Michelf\MarkdownExtra();
+        $parser->no_markup = true;
+        $html = $parser->transform($markdown);
 
         // Sanitize the resulting HTML using Moodle's HTMLPurifier.
-        $html = purify_html([
+        // purify_html($text, $options) - argument order matters.
+        $html = purify_html($html, [
             'allowid' => false,
-        ], $html);
+        ]);
 
         return $html;
+    }
+
+    /**
+     * Normalise Markdown so common LLM formatting is rendered correctly.
+     *
+     * Markdown requires a blank line between a paragraph and a following list.
+     * Models often emit "**Title:**\n* item" and the list would otherwise be
+     * rendered as literal asterisks. Fenced code blocks are left untouched.
+     *
+     * @param string $markdown Raw Markdown.
+     * @return string Normalised Markdown.
+     */
+    protected function normalise_markdown(string $markdown): string {
+        $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
+        $lines = explode("\n", $markdown);
+        $result = [];
+
+        $listpattern = '/^\s{0,3}(?:[-*+]|\d+[.)])\s+/';
+        $fencepattern = '/^\s*(?:```|~~~)/';
+
+        $previousblank = true;
+        $previouslist = false;
+        $infence = false;
+
+        foreach ($lines as $line) {
+            $isfence = preg_match($fencepattern, $line) === 1;
+            if ($isfence) {
+                $infence = !$infence;
+                $result[] = $line;
+                $previousblank = false;
+                $previouslist = false;
+                continue;
+            }
+
+            if ($infence) {
+                $result[] = $line;
+                $previousblank = trim($line) === '';
+                $previouslist = false;
+                continue;
+            }
+
+            $islist = preg_match($listpattern, $line) === 1;
+            if ($islist && !$previousblank && !$previouslist) {
+                $result[] = '';
+            }
+
+            $result[] = $line;
+            $previousblank = trim($line) === '';
+            $previouslist = $islist;
+        }
+
+        return implode("\n", $result);
     }
 }

@@ -46,16 +46,27 @@ class observer {
      * @param \mod_quiz\event\attempt_submitted $event
      */
     public static function handle_attempt_submitted(\mod_quiz\event\attempt_submitted $event): void {
-        $attemptid = $event->objectid;
-        $quizid = $event->get_data()['other']['quizid'] ?? 0;
-
-        if (!$attemptid || !$quizid) {
+        $attemptid = (int)$event->objectid;
+        if (!$attemptid) {
             return;
         }
 
-        // Get course ID from quiz.
         global $DB;
-        $quiz = $DB->get_record('quiz', ['id' => $quizid], 'course', IGNORE_MISSING);
+
+        // The event only guarantees the attempt id; read quiz and preview flag
+        // from the attempt itself instead of relying on optional event data.
+        $attempt = $DB->get_record('quiz_attempts', ['id' => $attemptid], 'id,quiz,preview,state', IGNORE_MISSING);
+        if (!$attempt) {
+            return;
+        }
+
+        // Never grade teacher preview attempts.
+        if (!empty($attempt->preview)) {
+            return;
+        }
+
+        $quizid = (int)$attempt->quiz;
+        $quiz = $DB->get_record('quiz', ['id' => $quizid], 'id,course', IGNORE_MISSING);
         if (!$quiz) {
             return;
         }

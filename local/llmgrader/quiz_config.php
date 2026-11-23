@@ -132,7 +132,7 @@ if ($page === 'logs') {
     // Show grading logs for this quiz.
     echo '<h3>' . get_string('gradinglogs', 'local_llmgrader') . '</h3>';
 
-    $attempts = $DB->get_records('quiz_attempts', ['quiz' => $quiz->id, 'state' => 'submitted'], 'timefinish DESC', 'id, userid, timefinish', 0, 100);
+    $attempts = $DB->get_records('quiz_attempts', ['quiz' => $quiz->id, 'state' => \mod_quiz\quiz_attempt::FINISHED], 'timefinish DESC', 'id, userid, timefinish', 0, 100);
 
     if ($attempts) {
         $attemptids = array_keys($attempts);

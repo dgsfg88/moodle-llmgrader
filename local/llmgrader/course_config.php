@@ -122,22 +122,13 @@ if ($page === 'logs') {
     // Show grading logs for this course.
     echo '<h3>' . get_string('gradinglogs', 'local_llmgrader') . '</h3>';
 
-    $attempts = $DB->get_records_sql("
-        SELECT DISTINCT qa.id, qa.quiz, qa.userid, qa.timefinish
-          FROM {quiz_attempts} qa
-          INNER JOIN {quiz} q ON q.id = qa.quiz
-          WHERE q.course = ?", [$courseid], 0, 100);
-
-    if ($attempts) {
-        $attemptids = array_keys($attempts);
-        list($insql, $inparams) = $DB->get_in_or_equal($attemptids, SQL_PARAMS_NAMED);
-        $logs = $DB->get_records_select("
-            SELECT ll.*, qa.userid, q.name as quizname
-              FROM {local_llmgrader_log} ll
-              INNER JOIN {quiz_attempts} qa ON ll.attemptid = qa.id
-              INNER JOIN {quiz} q ON qa.quiz = q.id
-             WHERE qa.quiz IN (SELECT id FROM {quiz} WHERE course = ?)
-          ORDER BY ll.timecreated DESC", [$courseid], 0, 100);
+    $logs = $DB->get_records_sql("
+        SELECT ll.*, qa.userid, q.name AS quizname
+          FROM {local_llmgrader_log} ll
+          INNER JOIN {quiz_attempts} qa ON ll.attemptid = qa.id
+          INNER JOIN {quiz} q ON qa.quiz = q.id
+         WHERE q.course = ?
+      ORDER BY ll.timecreated DESC", [$courseid], 0, 100);
 
         if ($logs) {
             $table = new \html_table();
@@ -172,9 +163,6 @@ if ($page === 'logs') {
         } else {
             echo '<p>' . get_string('nogradesfound', 'local_llmgrader') . '</p>';
         }
-    } else {
-        echo '<p>' . get_string('nogradesfound', 'local_llmgrader') . '</p>';
-    }
 
     echo $OUTPUT->footer();
     exit;

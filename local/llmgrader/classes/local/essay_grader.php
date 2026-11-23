@@ -80,28 +80,43 @@ class essay_grader {
      * @throws \Exception On grading failure.
      */
     public function grade(\qtype_essay_question $question, question_usage_by_activity $quba, int $slot, int $attemptid, int $quizid = 0, int $courseid = 0): array {
-        // Get student response.
+        // Get student response and the mark actually assigned to this slot.
+        // The maximum mark lives on the question attempt, not on the question
+        // definition ($question->maxmark does not exist).
         $qa = $quba->get_question_attempt($slot);
         $response = $this->get_student_response($qa);
+        $maxmark = (float)$quba->get_question_max_mark($slot);
 
         // Build grading context with resolved config.
-        $gradingcontext = $this->build_grading_context($question, $response, $quba, $attemptid, $quizid, $courseid);
+        $gradingcontext = $this->build_grading_context(
+            $question,
+            $response,
+            $quba,
+            $attemptid,
+            $quizid,
+            $courseid,
+            $maxmark
+        );
 
         // Send to LLM and get result.
         $llmresult = $this->client->send_request($gradingcontext);
 
         // Parse and validate response.
-        $parsed = $this->parser->parse_and_validate($llmresult, (float)$question->maxmark);
+        $parsed = $this->parser->parse_and_validate(
+            $llmresult,
+            $maxmark,
+            (string)$gradingcontext['feedbacklanguage']
+        );
 
         // Convert feedback Markdown to safe HTML.
         $feedbackhtml = $this->converter->markdown_to_html_safe($parsed['comment']);
 
         // Apply grade via Question Engine API.
-        $this->apply_grade($quba, $slot, $feedbackhtml, $parsed['score'], (float)$question->maxmark);
+        $this->apply_grade($quba, $slot, $attemptid, $quizid, $feedbackhtml, (float)$parsed['score']);
 
         return [
             'score' => $parsed['score'],
-            'maxscore' => (float)$question->maxmark,
+            'maxscore' => $maxmark,
             'feedback' => $feedbackhtml,
             'model' => $this->client->get_model(),
         ];
@@ -114,12 +129,20 @@ class essay_grader {
      * @return array ['text' => string, 'format' => int]
      */
     protected function get_student_response(question_attempt $qa): array {
-        $data = $qa->get_last_qt_data();
-        $answer = $data['answer'] ?? '';
-        $answerformat = $data['answerformat'] ?? FORMAT_HTML;
+        // Read the last response variables explicitly: get_last_qt_data() may
+        // also contain grading step data, so do not rely on it here.
+        $answer = $qa->get_last_qt_var('answer');
+        if ($answer === null) {
+            $answer = '';
+        }
+
+        $answerformat = $qa->get_last_qt_var('answerformat');
+        if ($answerformat === null) {
+            $answerformat = FORMAT_HTML;
+        }
 
         return [
-            'text' => $answer,
+            'text' => (string)$answer,
             'format' => (int)$answerformat,
         ];
     }
@@ -133,13 +156,10 @@ class essay_grader {
      * @param int $attemptid
      * @param int $quizid
      * @param int $courseid
+     * @param float $maxmark Maximum mark for this question slot.
      * @return array The grading context for LLM prompt building.
      */
-    protected function build_grading_context(\qtype_essay_question $question, array $response, question_usage_by_activity $quba, int $attemptid, int $quizid = 0, int $courseid = 0): array {
-        // Get course context.
-        $context = \context_module::instance($quba->get_context()->instanceid);
-        $coursecontext = $context->get_course_context(false);
-
+    protected function build_grading_context(\qtype_essay_question $question, array $response, question_usage_by_activity $quba, int $attemptid, int $quizid = 0, int $courseid = 0, float $maxmark = 0.0): array {
         // Use provided config or resolve from context.
         $config = $this->config;
         if (!$config && ($quizid > 0 || $courseid > 0)) {
@@ -151,18 +171,20 @@ class essay_grader {
             $config = config_provider::get_global_config();
         }
 
+        $questiontextformat = (int)($question->questiontextformat ?? FORMAT_HTML);
+
         return [
             'question' => [
                 'text' => $question->name,
                 'textformat' => FORMAT_PLAIN,
             ],
-            'questiontext' => $this->converter->html_to_markdown($question->questiontext ?? ''),
-            'questiontextformat' => $question->qtype->get_question_options_cache($question)->get('questiontextformat') ?? FORMAT_HTML,
+            'questiontext' => $this->converter->html_to_markdown($question->questiontext ?? '', $questiontextformat),
+            'questiontextformat' => $questiontextformat,
             'graderinfo' => $question->graderinfo ?? '',
-            'graderinfoformat' => $question->graderinfoformat ?? FORMAT_HTML,
+            'graderinfoformat' => (int)($question->graderinfoformat ?? FORMAT_HTML),
             'studentresponse' => $response['text'],
             'studentresponseformat' => $response['format'],
-            'maxmark' => $question->maxmark,
+            'maxmark' => $maxmark,
             'feedbacklanguage' => $config->feedback_language ?: 'it',
             'systemprompt' => $config->system_prompt ?: '',
         ];
@@ -173,29 +195,52 @@ class essay_grader {
      *
      * @param \question_usage_by_activity $quba
      * @param int $slot
+     * @param int $attemptid
+     * @param int $quizid
      * @param string $feedback
-     * @param float $score
-     * @param float $maxscore
+     * @param float $score Absolute mark (not a fraction).
      */
-    protected function apply_grade(question_usage_by_activity $quba, int $slot, string $feedback, float $score, float $maxscore): void {
-        // Verify no manual grade has been applied.
-        $fraction = $quba->get_question_fraction($slot);
-        if ($fraction !== null && $fraction >= 0) {
-            // Check if this was already graded by our plugin (check log).
-            global $DB;
-            $log = $DB->get_record('local_llmgrader_log', [
-                'slot' => $slot,
-                'status' => 'completed',
-            ]);
-            if ($log) {
-                // Already graded by us, safe to update.
-            } else {
-                // May have been manually graded - skip to preserve teacher grades.
-                return;
-            }
+    protected function apply_grade(question_usage_by_activity $quba, int $slot, int $attemptid, int $quizid, string $feedback, float $score): void {
+        global $CFG, $DB;
+
+        require_once($CFG->dirroot . '/question/engine/lib.php');
+
+        // question_attempt::manual_grade() expects the absolute mark, not a
+        // fraction of the maximum mark.
+        $quba->manual_grade($slot, $feedback, $score, FORMAT_HTML);
+        \question_engine::save_questions_usage_by_activity($quba);
+
+        // Update the attempt total and the gradebook. Without this the question
+        // would be graded but the quiz attempt would still show no grade.
+        $attempt = $DB->get_record('quiz_attempts', ['id' => $attemptid], 'id,quiz,userid', IGNORE_MISSING);
+        if (!$attempt) {
+            return;
         }
 
-        $quba->manual_grade($slot, $feedback, $score / $maxscore, FORMAT_HTML);
-        \question_engine::save_questions_usage_by_activity($quba);
+        // get_total_mark() returns null while other questions in the attempt
+        // are still awaiting grading: in that case keep the previous value.
+        $totalmark = $quba->get_total_mark();
+        if ($totalmark !== null) {
+            $DB->set_field('quiz_attempts', 'sumgrades', $totalmark, ['id' => $attemptid]);
+        }
+        $DB->set_field('quiz_attempts', 'timemodified', time(), ['id' => $attemptid]);
+
+        try {
+            $quizobj = \mod_quiz\quiz_settings::create((int)$attempt->quiz, (int)$attempt->userid);
+            $quizobj->get_grade_calculator()->recompute_final_grade((int)$attempt->userid);
+        } catch (\Throwable $e) {
+            // The question grade is already saved; a gradebook recalculation
+            // failure must not discard it.
+            debugging('local_llmgrader: could not recompute quiz grade: ' . $e->getMessage(), DEBUG_DEVELOPER);
+        }
+    }
+
+    /**
+     * Get the HTTP status code of the last LLM request.
+     *
+     * @return int|null
+     */
+    public function get_last_http_code(): ?int {
+        return $this->client->get_last_http_code();
     }
 }
