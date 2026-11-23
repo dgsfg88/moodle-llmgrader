@@ -71,6 +71,17 @@ class retry_manager {
         }
 
         $message = $e->getMessage();
+        $errorcode = ($e instanceof \moodle_exception) ? (string)$e->errorcode : '';
+
+        // Retry on plugin-level parse failures (transient model behaviour).
+        if (in_array($errorcode, ['invalidjson', 'invalidllmresponse'], true)) {
+            return true;
+        }
+        if (stripos($message, 'JSON non valido') !== false ||
+            stripos($message, 'Syntax error') !== false ||
+            stripos($message, 'invalidjson') !== false) {
+            return true;
+        }
 
         // Retry on HTTP 429 (rate limiting).
         if (strpos($message, 'HTTP 429') !== false || strpos($message, 'ratelimited') !== false) {

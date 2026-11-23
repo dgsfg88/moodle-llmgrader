@@ -68,6 +68,13 @@ class response_parser {
         }
 
         if (!is_array($data)) {
+            // Some models emit unescaped double quotes inside a string value
+            // (for example a quoted term in the feedback). Escape them.
+            $candidate = $this->repair_unescaped_quotes($candidate ?? $json);
+            $data = json_decode($candidate, true);
+        }
+
+        if (!is_array($data)) {
             // The generation may have been cut off by max_tokens. Keep the
             // complete criteria and close the structure, flagging the result.
             $candidate = $this->truncate_to_last_complete_criterion($candidate ?? $json);
@@ -415,6 +422,66 @@ class response_parser {
                     continue;
                 }
 
+                $out .= $char;
+                continue;
+            }
+
+            if ($char === '"') {
+                $instring = true;
+            }
+            $out .= $char;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Repair unescaped double quotes that appear inside JSON string values.
+     *
+     * Some models emit a quoted term (for example passaggio a "a") without
+     * escaping the inner quote, which makes json_decode() fail. A quote is
+     * treated as the end of the string only when the following non-space
+     * character is a JSON structural token.
+     *
+     * @param string $json Raw JSON candidate.
+     * @return string
+     */
+    protected function repair_unescaped_quotes(string $json): string {
+        $out = '';
+        $instring = false;
+        $escape = false;
+        $length = strlen($json);
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $json[$i];
+
+            if ($instring) {
+                if ($escape) {
+                    $out .= $char;
+                    $escape = false;
+                    continue;
+                }
+                if ($char === '\\') {
+                    $out .= $char;
+                    $escape = true;
+                    continue;
+                }
+                if ($char === '"') {
+                    $j = $i + 1;
+                    while ($j < $length && ($json[$j] === ' ' || $json[$j] === "\t" ||
+                           $json[$j] === "\n" || $json[$j] === "\r")) {
+                        $j++;
+                    }
+                    $next = ($j < $length) ? $json[$j] : '';
+                    if ($next === '' || $next === ',' || $next === '}' ||
+                        $next === ']' || $next === ':') {
+                        $out .= $char;
+                        $instring = false;
+                    } else {
+                        $out .= '\\"';
+                    }
+                    continue;
+                }
                 $out .= $char;
                 continue;
             }

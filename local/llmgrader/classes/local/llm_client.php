@@ -52,6 +52,9 @@ class llm_client {
     /** @var bool Whether endpoints on private/local networks are allowed */
     protected bool $allowlocalendpoints = false;
 
+    /** @var bool Whether the provider supports response_format json_object. */
+    protected bool $jsonmodesupported = true;
+
     /** @var string|null Last used model (for reporting) */
     protected ?string $lastmodel = null;
 
@@ -152,7 +155,27 @@ class llm_client {
             'max_tokens' => $this->maxtokens,
         ];
 
-        $data = $this->post_json($payload);
+        // Ask supporting providers to emit a JSON object. This prevents
+        // malformed JSON on OpenAI and most compatible servers. Providers
+        // that reject the parameter are detected on the first 400 and retried
+        // without it, so unsupported endpoints keep working.
+        if ($this->jsonmodesupported) {
+            $payload['response_format'] = ['type' => 'json_object'];
+        }
+
+        try {
+            $data = $this->post_json($payload);
+        } catch (\moodle_exception $e) {
+            if ($this->jsonmodesupported && $this->lasthttpcode === 400 &&
+                stripos($e->getMessage(), 'response_format') !== false) {
+                $this->jsonmodesupported = false;
+                unset($payload['response_format']);
+                $data = $this->post_json($payload);
+            } else {
+                throw $e;
+            }
+        }
+
         $this->lastmodel = $this->model;
 
         if (!isset($data['choices'][0]['message']['content'])) {

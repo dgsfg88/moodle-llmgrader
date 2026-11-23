@@ -167,10 +167,10 @@ function xmldb_local_llmgrader_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026112100, 'local', 'llmgrader');
     }
 
-    // Version 1.3.0: UTF-8 fix, delimited prompt, per-criterion grading
-    // and tolerant JSON parsing (no schema changes).
-    if ($oldversion < 2026112300) {
-        upgrade_plugin_savepoint(true, 2026112300, 'local', 'llmgrader');
+    // Version 1.3.1: retry on invalid JSON, unescaped-quote repair, optional
+    // JSON mode (no schema changes).
+    if ($oldversion < 2026112301) {
+        upgrade_plugin_savepoint(true, 2026112301, 'local', 'llmgrader');
     }
 
     return true;
